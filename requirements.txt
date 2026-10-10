@@ -1,0 +1,37 @@
+# =============================================================================
+# MultiTarget BioPredict — Dependências do ambiente local
+# Alvo: Python 3.12 (Windows / Linux / macOS) | Hardware: 8 GB RAM, CPU only
+# Versões fixadas (==) para reprodutibilidade. Atualize de forma deliberada.
+# =============================================================================
+
+# --- Quimioinformática -------------------------------------------------------
+rdkit==2026.9.1
+
+# --- Dados & computação numérica --------------------------------------------
+numpy==2.5.4
+pandas==3.0.6
+
+# --- Machine Learning & Explicabilidade -------------------------------------
+scikit-learn==1.9.1
+xgboost==3.4.1
+shap==0.53.0
+joblib==1.6.0
+
+# --- Interface Web -----------------------------------------------------------
+streamlit==1.65.0
+streamlit-ketcher==0.0.1
+
+# --- Aquisição de dados ------------------------------------------------------
+chembl_webresource_client==0.10.9
+requests>=2.31,<3          # download direto dos datasets TDC (Harvard Dataverse)
+
+# --- Notebooks (kernel Jupyter no IDE) --------------------------------------
+ipykernel>=6.29
+
+# -----------------------------------------------------------------------------
+# NOTA: PyTDC NÃO está aqui de propósito. A versão 1.x exige tiledbsoma
+# (sem wheels para Windows), torch/transformers e fixa numpy<2 / pandas<3 /
+# rdkit<2024.3, o que conflita com esta stack. Os datasets hERG do TDC são
+# baixados por src/data_utils.py. Para uso opcional em Linux/Colab, veja
+# requirements-tdc.txt.
+# -----------------------------------------------------------------------------

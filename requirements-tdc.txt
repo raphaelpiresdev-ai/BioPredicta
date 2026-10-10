@@ -1,0 +1,19 @@
+# =============================================================================
+# OPCIONAL — PyTDC (Therapeutics Data Commons) em ambiente SEPARADO
+# =============================================================================
+# Use APENAS em Linux/macOS ou Google Colab, num venv isolado do principal.
+#
+# Motivos para não instalar no ambiente principal (Windows, Python 3.12):
+#   - PyTDC 1.1.x depende de tiledbsoma / cellxgene-census -> sem wheels Windows
+#   - Puxa accelerate + transformers + torch (~2 GB) -> pesado para 8 GB RAM
+#   - Fixa numpy<2, pandas<3, rdkit<2024.3.1 -> conflita com shap 0.53 (numpy>=2)
+#
+# No ambiente principal, use:
+#   from src.data_utils import download_tdc_dataset
+#   df = download_tdc_dataset("herg_karim")
+#
+# Instalação (ambiente isolado):
+#   python -m venv .venv-tdc && source .venv-tdc/bin/activate
+#   pip install -r requirements-tdc.txt
+# =============================================================================
+PyTDC==1.1.15
