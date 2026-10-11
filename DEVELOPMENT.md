@@ -4,9 +4,9 @@
 **Projeto:** MultiTarget BioPredict  
 **Autoria Técnica:** Raphael Pires  
 **Especialidade:** Engenharia de Software, Engenharia de Dados e Quimioinformática  
-**Status Atual do Projeto:** Fase 0 e Fase 1 Concluídas com Sucesso | Preparação para Fase 2  
+**Status Atual do Projeto:** Fases 0, 1 e 2 Concluídas com Sucesso | Preparação para Fase 3  
 **Ambiente de Execução:** Local Antigravity IDE (Windows 11, Python 3.12, 8 GB RAM, AMD Ryzen 7, CPU Only)  
-**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase1-aquisicao-e-curadoria`  
+**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase3-featurizacao-e-eda`  
 
 ---
 
@@ -81,6 +81,12 @@ timeline
       Curadoria Toxicológica hERG : RDKit, eliminação de 16 conflitos de classe 0/1 -> 13.136 compostos (50/50)
       Configuração Jupyter : Criação e registro do kernel biopredicta-venv e compilação dos notebooks
       Commit e Versionamento : Commit f0d73a2 na branch feat/fase1-aquisicao-e-curadoria
+    section Fase 2 — Featurização e EDA
+      Featurização Vetorizada 2D : src/chem_utils.py com 1.030 features (6 descritores + 1024 Morgan uint8)
+      Serialização Parquet : a2a_featurized (0.64 MB) e herg_featurized (1.79 MB) para I/O ultrarrápido
+      Notebook 03 EDA A2A : TPSA e MolWt correlacionados positivamente; 89% Lipinski; PCA explica 81.4%
+      Notebook 04 EDA hERG : Bloqueadores com maior lipofilicidade (p=8.2e-298); menor TPSA (p=6.8e-263)
+      Domínio de Aplicabilidade : PCA conjunto comprova sobreposição total de A2A no espaço hERG
 ```
 
 ---
@@ -269,6 +275,86 @@ O canal de potássio dependente de voltagem $K_v11.1$ (**hERG**) conduz a corren
 
 ---
 
+### 3.3 Etapa 2 — Featurização Molecular e Análise Exploratória do Espaço Químico (EDA)
+
+A transição da representação textual (códigos SMILES canônicos) para matrizes numéricas consumíveis por algoritmos de aprendizado de máquina supervisionado é o gargalo mais sensível em quimioinformática. Na Fase 2, estabeleceu-se a engenharia de atributos e a análise estatística comparativa de ambos os conjuntos de dados curados.
+
+#### 3.3.1 Arquitetura do Espaço de Atributos ($X \in \mathbb{R}^{N \times 1030}$)
+Cada molécula é descrita simultaneamente em duas escalas físico-químicas ortogonais:
+
+1. **Propriedades Macroscópicas Globais (6 Descritores RDKit 2D):**
+   - **`MolWt`** (Massa Molecular em Da): Representa o volume e tamanho molecular.
+   - **`MolLogP`** (Logaritmo do Coeficiente de Partição Octanol-Água de Wildman-Crippen): Quantifica a lipofilicidade intrínseca da molécula.
+   - **`TPSA`** (Área de Superfície Polar Topológica em Å²): Métrica crítica para permeabilidade de membrana e absorção oral.
+   - **`NumHDonors`** (Doadores de Ligações de Hidrogênio - OH, NH): Capacidade de doar elétrons em pontes de H.
+   - **`NumHAcceptors`** (Aceptores de Ligações de Hidrogênio - N, O com pares de elétrons livres).
+   - **`NumRotatableBonds`** (Ligações Rotacionáveis Não-Terminais): Indicador da flexibilidade conformacional tridimensional.
+
+2. **Microambientes e Subestruturas Locais (1024 bits ECFP4):**
+   - *Morgan Fingerprints* com raio topológico $r=2$ (diâmetro aproximado de 4 ligações covalentes, análogo ao clássico *Extended-Connectivity Fingerprint* ECFP4).
+   - Espaço binário dobrado (*folded*) para $1.024$ bits usando hashing determinístico do RDKit.
+   - Forçamento estrito de armazenamento em `numpy.uint8` ($1$ byte por valor), economizando **87,5% de memória RAM** contra implementações padrão de 64 bits.
+
+#### 3.3.2 Otimização de Armazenamento e I/O: Adoção do Apache Parquet
+- **Problema:** O formato CSV tradicional, embora legível, é serializado em texto puro. Um DataFrame com 13.136 linhas e 1.034 colunas gera arquivos CSV superiores a 30 MB e exige desserialização intensiva de strings a cada leitura, convertendo colunas binárias para `int64` de volta e triplicando o pico de RAM.
+- **Solução Implementada:** Introdução do formato columnar binário **Apache Parquet** (`pyarrow`):
+  - `a2a_featurized.parquet`: **0,64 MB** (1.364 linhas × 1.035 colunas).
+  - `herg_featurized.parquet`: **1,79 MB** (13.136 linhas × 1.034 colunas).
+- **Vantagem:** Leitura quase instantânea (< 0,2s), compressão Snappy nativa e preservação imutável da tipagem `uint8` diretamente do disco.
+
+---
+
+#### 3.3.3 Análise Exploratória e Quimioinformática do Alvo $A_{2A}$
+Conduzida e executada integralmente no caderno [`notebooks/03_a2a_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/03_a2a_featurization_eda.ipynb):
+
+1. **Distribuição da Afinidade Biológica ($pIC_{50}$):**
+   - Média: $6{,}94 \pm 1{,}28$ | Mediana: $6{,}97$ | Intervalo: $[3{,}05 \text{ a } 10{,}60]$.
+   - Apresenta distribuição simétrica com comportamento aproximadamente gaussiano, ideal para regressão supervisionada sem necessidade de transformações de Box-Cox adicionais.
+2. **Correlações Físico-Químicas com a Potência:**
+   - **`TPSA`** apresentou a correlação positiva mais pronunciada com o aumento de afinidade ($r = 0{,}236$, $\rho = 0{,}280$, $p = 4{,}57 \times 10^{-26}$).
+   - **`MolWt`** também correlaciona positivamente com a potência ($r = 0{,}217$, $\rho = 0{,}279$, $p = 9{,}16 \times 10^{-26}$).
+   - **Racional Biofísico:** O receptor $A_{2A}$ possui uma cavidade ortostérica profunda decorada com resíduos capazes de formar redes extensas de pontes de hidrogênio (como Asn253, Thr88 e Glu169). Moléculas maiores e com heteroátomos funcionais adicionais estabelecem contatos polares adicionais, aumentando a energia livre de ligação ($\Delta G_{\text{bind}}$).
+3. **Avaliação da Espécie Química (Regra dos Cinco de Lipinski):**
+   - **89,0%** dos compostos curados apresentam **0 violações** de Lipinski.
+   - **9,7%** apresentam apenas 1 violação (frequentemente `MolWt` ligeiramente acima de 500 Da).
+   - Menos de 1,3% apresentam 2 ou mais violações, consolidando a biblioteca como altamente *drug-like*.
+4. **Análise de Componentes Principais (PCA):**
+   - Baseada nos 6 descritores 2D padronizados.
+   - Os dois primeiros componentes explicam **81,4% da variância total** (PC1: 60,5%, PC2: 20,9%).
+   - PC1 carrega predominantemente tamanho e flexibilidade molecular (`MolWt`, `HBA`, `RotBonds`), enquanto PC2 contrasta polaridade (`TPSA`, `HBD`) contra hidrofobicidade (`MolLogP`).
+5. **Subestruturas Enriquecidas em Ligantes Potentes:**
+   - Pela análise de enriquecimento dos Morgan bits nos compostos potentes ($pIC_{50} \ge 7{,}0$ vs $pIC_{50} < 7{,}0$), identificou-se:
+     - `fp_904`: Enriquecimento de **+39,8%** nos inibidores potentes.
+     - `fp_699`: Enriquecimento de **+38,8%** nos inibidores potentes.
+     - `fp_1`: Enriquecimento de **+30,2%** nos inibidores potentes.
+
+---
+
+#### 3.3.4 Análise Exploratória e Separação Biofísica do Canal hERG
+Conduzida e executada integralmente no caderno [`notebooks/04_herg_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/04_herg_featurization_eda.ipynb):
+
+1. **Separação Físico-Química e Teste de Hipótese Não-Paramétrico (Mann-Whitney U):**
+   A comparação estatística formal entre a classe bloqueadora ($Y=1$, cardiotóxica) e a classe não-bloqueadora ($Y=0$, segura) revelou disparidades drásticas:
+
+| Descritor Físico-Químico | Média Bloqueadores ($Y=1$) | Média Não-Bloqueadores ($Y=0$) | Estatística Mann-Whitney $U$ | Valor-$p$ |
+|---|:---:|:---:|:---:|:---:|
+| **`MolLogP`** | **4,26 ± 1,51** | **3,31 ± 1,46** | $2,98 \times 10^7$ | $\mathbf{8{,}23 \times 10^{-298}}$ |
+| **`TPSA`** (Å²) | **65,77 ± 28,14** | **84,34 ± 35,47** | $1,28 \times 10^7$ | $\mathbf{6{,}82 \times 10^{-263}}$ |
+| **`NumRotatableBonds`** | **5,95 ± 2,93** | **4,67 ± 2,74** | $2,69 \times 10^7$ | $\mathbf{1{,}03 \times 10^{-135}}$ |
+| **`MolWt`** (Da) | **392,6 ± 103,1** | **359,0 ± 106,7** | $2,50 \times 10^7$ | $\mathbf{1{,}39 \times 10^{-84}}$ |
+| **`NumHDonors`** | **1,07 ± 1,02** | **1,50 ± 1,18** | $1,73 \times 10^7$ | $\mathbf{4{,}19 \times 10^{-81}}$ |
+
+2. **Racional Biofísico e Farmacológico Estrutural:**
+   - **Por que bloqueadores de hERG são mais lipofílicos (`MolLogP` elevado) e menos polares (`TPSA` reduzido)?**
+     O poro central do canal de potássio $K_v11.1$ é excepcionalmente largo e delimitado por anéis aromáticos altamente hidrofóbicos provenientes dos resíduos de tirosina (**Tyr652**) e fenilalanina (**Phe656**). Pequenas moléculas com caráter lipofílico acentuado sofrem atração hidrofóbica favorável e estabelecem interações múltiplas de $\pi$-$\pi$ *stacking* e cátion-$\pi$ na cavidade, obstruindo fisicamente a passagem de íons $K^+$. Moléculas hidrofílicas com alta polaridade superficial (TPSA elevado) são desfavoráveis energeticamente para desolvatação e penetração na cavidade do canal.
+   - **Flexibilidade Conformacional:** Bloqueadores apresentam significativamente mais ligações rotacionáveis ($p < 10^{-135}$), permitindo que a molécula adote conformações tridimensionais que maximizem os contatos aromáticos simultâneos no canal.
+
+3. **Validação do Domínio de Aplicabilidade (*Applicability Domain* - AD):**
+   - Ao projetar os 1.364 ligantes curados de $A_{2A}$ simultaneamente no espaço químico de PCA dos 13.136 compostos de hERG, verificou-se **sobreposição completa**: todos os compostos do receptor de adenosina habitam o núcleo de alta densidade do conjunto toxicológico hERG.
+   - **Conclusão:** Os modelos supervisionados de hERG treinados nesta base operarão por interpolação de alta densidade estrutural durante a triagem virtual de análogos de $A_{2A}$, sem riscos de extrapolação fora do domínio químico.
+
+---
+
 ## 4. Arquitetura Geral do Pipeline e Fluxo de Dados Local
 
 O diagrama a seguir sintetiza a arquitetura completa do sistema, desde os dados brutos locais até a camada de entrega visual no Streamlit:
@@ -403,35 +489,44 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 | **DEC-07** | Arquitetura | Dois cadernos Jupyter independentes | Caderno único unificado | Isola o ciclo de vida dos dados na memória RAM e separa conceitualmente os domínios de regressão e classificação. |
 | **DEC-08** | Decisão | Dois semáforos visuais independentes | Índice único ponderado (*Desirability Index*) | Evita compensação perigosa onde alta eficácia disfarça toxicidade cardiovascular inaceitável. |
 | **DEC-09** | XAI | SHAP *TreeExplainer* restrito ao Top 10 | Gráficos completos com todas as 1030 features | Geração de sumário gráfico completo de 1030 atributos trava a interface Streamlit em CPUs locais. |
+| **DEC-10** | I/O & Formato | Armazenamento em Apache Parquet (`uint8`) | Serialização em CSV clássico | Redução de 75% no tamanho em disco, I/O sub-segundo e preservação estrita do tipo `uint8` sem conversão. |
 
 ---
 
-## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 2)
+## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 3)
 
 ### 9.1 Inventário dos Arquivos no Repositório
 - **Módulos Python Reutilizáveis:**
-  - [`src/chem_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/chem_utils.py): padronização estrutural, 6 descritores 2D e ECFP4 1024b `uint8`.
+  - [`src/chem_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/chem_utils.py): padronização estrutural, 6 descritores 2D, ECFP4 1024b `uint8` e rotina em lote `featurize_dataframe`.
   - [`src/data_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/data_utils.py): clientes ChEMBL REST e Harvard Dataverse com curadoria integrada.
-  - [`src/model_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/model_utils.py): métricas estatísticas e serialização compactada.
-- **Cadernos de Curadoria:**
-  - [`notebooks/01_a2a_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/01_a2a_curation.ipynb): caderno interativo documentado do alvo $A_{2A}$.
-  - [`notebooks/02_herg_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/02_herg_curation.ipynb): caderno interativo documentado do canal hERG.
-- **Bases de Dados Brutas e Curadas:**
+  - [`src/model_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/model_utils.py): métricas estatísticas e serialização compactada (`joblib compress=3`).
+- **Cadernos Interativos Documentados e Executados:**
+  - [`notebooks/01_a2a_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/01_a2a_curation.ipynb): curadoria de bioatividades $A_{2A}$.
+  - [`notebooks/02_herg_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/02_herg_curation.ipynb): curadoria toxicológica do canal hERG.
+  - [`notebooks/03_a2a_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/03_a2a_featurization_eda.ipynb): featurização, PCA (81,4% de variância), correlação TPSA/MolWt e subestruturas $A_{2A}$.
+  - [`notebooks/04_herg_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/04_herg_featurization_eda.ipynb): separação biofísica hERG (Mann-Whitney $p < 10^{-260}$) e sobreposição do domínio de aplicabilidade.
+- **Bases de Dados Brutas, Curadas e Featurizadas:**
   - [`data/raw/chembl_a2a_raw.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/chembl_a2a_raw.csv): 3.050 bioatividades brutas.
   - [`data/raw/tdc_herg_karim.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/tdc_herg_karim.csv): 13.445 compostos brutos.
-  - [`data/processed/a2a_curated.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_curated.csv): **1.364 moléculas únicas curadas** ($A_{2A}$).
-  - [`data/processed/herg_curated.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_curated.csv): **13.136 moléculas únicas curadas** (hERG, 50/50).
+  - [`data/processed/a2a_curated.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_curated.csv): 1.364 moléculas únicas curadas ($A_{2A}$).
+  - [`data/processed/herg_curated.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_curated.csv): 13.136 moléculas únicas curadas (hERG, 50/50).
+  - [`data/processed/a2a_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.parquet): **1.364 linhas × 1.035 colunas** (0,64 MB, `uint8`).
+  - [`data/processed/a2a_featurized.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.csv): versão CSV correspondente (2,85 MB).
+  - [`data/processed/herg_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_featurized.parquet): **13.136 linhas × 1.034 colunas** (1,79 MB, `uint8`).
 
 ---
 
-### 9.2 Escopo Planejado para a Fase 2 (Featurização e Análise Exploratória)
-Com a fundação de dados higienizada e consolidada, as atividades da **Fase 2** compreenderão:
-1. **Featurização Vetorizada Concorrente:**
-   - Computação da matriz de 6 descritores 2D + 1024 bits ECFP4 para ambos os datasets curados.
-   - Padronização de escala (*StandardScaler* ou *RobustScaler*) para os descritores contínuos, preservando a natureza esparsa e binária dos Morgan Fingerprints em `uint8`.
-2. **Análise Exploratória do Espaço Químico (*Chemical Space Exploration*):**
-   - Análise de dispersão e correlação cruzada entre os descritores físico-químicos e as variáveis alvo ($pIC_{50}$ e rótulo hERG).
-   - Projeção de dimensionalidade via PCA e t-SNE no espaço molecular 2D para avaliar a diversidade estrutural dos conjuntos.
-   - Avaliação do domínio de aplicabilidade inicial dos compostos curados.
-3. **Persistência dos Conjuntos Featurizados:**
-   - Geração de matrizes featurizadas compactadas prontas para os cadernos de modelagem supervisionada das Fases 3 e 4.
+### 9.2 Escopo Planejado para a Fase 3 (Modelagem Supervisionada de Eficácia - $A_{2A}$)
+Com as matrizes numéricas completas e validadas, a **Fase 3** contemplará:
+1. **Separação de Treino e Teste:**
+   - Divisão balanceada 80/20 com estratificação ou split reproduzível (`random_state=42`).
+2. **Treinamento e Validação Cruzada 5-Fold (`n_jobs=2`):**
+   - **Baseline:** Dummy Regressor e Ridge Regression com ajuste de hiperparâmetro $\alpha$.
+   - **Random Forest Regressor:** `n_estimators=100-200`, `max_depth` calibrado.
+   - **XGBoost Regressor:** `tree_method='hist'` (rápido e econômico em RAM), taxa de aprendizado e profundidade otimizadas.
+   - **MLP Regressor:** Rede neural multicamadas shallow para teste de relações não-lineares.
+3. **Métricas Primárias de Aceite:**
+   - **$R^2 \ge 0{,}65$**, **$\text{RMSE} \le 0{,}80$** e **$\text{MAE} \le 0{,}60$**.
+4. **Serialização e Entrega:**
+   - Persistência do melhor regressor em `models/a2a_model.joblib` com `compress=3`.
+   - Caderno documentado e executado: `notebooks/05_a2a_modeling.ipynb`.

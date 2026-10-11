@@ -10,6 +10,7 @@ rdkit==2026.9.1
 # --- Dados & computação numérica --------------------------------------------
 numpy==2.5.4
 pandas==3.0.6
+pyarrow==25.0.1
 
 # --- Machine Learning & Explicabilidade -------------------------------------
 scikit-learn==1.9.1
@@ -25,8 +26,9 @@ streamlit-ketcher==0.0.1
 chembl_webresource_client==0.10.9
 requests>=2.31,<3          # download direto dos datasets TDC (Harvard Dataverse)
 
-# --- Notebooks (kernel Jupyter no IDE) --------------------------------------
+# --- Notebooks & Visualização (EDA) ------------------------------------------
 ipykernel>=6.29
+matplotlib==3.11.2
 
 # -----------------------------------------------------------------------------
 # NOTA: PyTDC NÃO está aqui de propósito. A versão 1.x exige tiledbsoma
