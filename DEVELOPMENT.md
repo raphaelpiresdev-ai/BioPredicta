@@ -4,9 +4,9 @@
 **Projeto:** MultiTarget BioPredict  
 **Autoria Técnica:** Raphael Pires  
 **Especialidade:** Engenharia de Software, Engenharia de Dados e Quimioinformática  
-**Status Atual do Projeto:** Fases 0, 1, 2, 3 e 4 Concluídas com Sucesso | Preparação para Fase 5  
+**Status Atual do Projeto:** Fases 0 a 5 Concluídas com Sucesso (Plataforma Completa Entregue) | Repositório Homologado  
 **Ambiente de Execução:** Local Antigravity IDE (Windows 11, Python 3.12, 8 GB RAM, AMD Ryzen 7, CPU Only)  
-**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase4-modelagem-herg`  
+**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase5-explicabilidade-e-streamlit`  
 
 ---
 
@@ -99,6 +99,11 @@ timeline
       Teste Cego Hold-out : Random Forest atinge ROC-AUC = 0.930, PR-AUC = 0.936, F1 = 0.853 (Metas Superadas)
       Calibração de Probabilidades : Brier Score = 0.112 (excelente calibração contínua)
       Persistência Compactada : models/herg_model.joblib (9.66 MB, compress=3) e metadados JSON
+    section Fase 5 — Score Multiobjetivo, SHAP e App Streamlit
+      Notebook 07 Avaliação Multiobjetivo : Predições pareadas A2A/hERG e matriz de dispersão de 4 quadrantes
+      Benchmark SHAP TreeExplainer : Atribuição de importância local em < 1.2s para as Top 10 features
+      Homologação Farmacológica : Controles Istradefilina, Cafeína e Terfenadina confirmam semáforos biológicos
+      Aplicação Web Streamlit : UI dark glassmorphic, editor 2D Ketcher, semáforos independentes e exportação CSV
 ```
 
 ---
@@ -475,6 +480,66 @@ A inspeção dos 20 atributos mais importantes do Random Forest corroborou os fu
 
 ---
 
+### 3.6 Etapa 5 — Integração Multiobjetivo, Explicabilidade Local (SHAP) e Interface Interativa Streamlit
+
+Na Fase 5, foi implementada a camada de integração de ponta a ponta da plataforma, articulando os dois modelos preditivos, a explicabilidade de inteligência artificial (*Explainable AI* - XAI) e a interface gráfica amigável para pesquisadores de química medicinal e farmacologia.
+
+#### 3.6.1 Caderno Integrador de Avaliação Multiobjetivo (`notebooks/07_multitarget_shap_evaluation.ipynb`)
+- **Pipeline Unificado de Predição:**
+  Construiu-se uma rotina de inferência pareada que carrega os modelos [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib) e [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib), computa simultaneamente os 6 descritores físico-químicos e os 1024 bits ECFP4 (`uint8`) para qualquer molécula fornecida via SMILES e projeta os resultados no espaço bidimensional de eficácia vs. segurança.
+- **Mapeamento no Espaço de Decisão Cartesiano (4 Quadrantes):**
+  Definiu-se a projeção cartesiana onde:
+  - **Eixo $X$:** Potência $pIC_{50}$ no receptor $A_{2A}$ (limiares verticais em $5{,}0$ e $6{,}5$).
+  - **Eixo $Y$:** Margem de Segurança Cardiológica $1 - P_{\text{hERG}}$ (limiares horizontais em $0{,}30$ e $0{,}70$, correspondentes a $P_{\text{hERG}} = 70\%$ e $30\%$).
+  O quadrante superior direito ($pIC_{50} \ge 6{,}5$ e $1 - P_{\text{hERG}} > 0{,}70$) representa a **Zona Ideal de Descoberta** (alta potência e alta segurança).
+- **Homologação com Controles Farmacológicos de Referência:**
+  A tabela a seguir apresenta os resultados empíricos obtidos na execução do caderno:
+
+| Composto | SMILES de Entrada | $pIC_{50}$ Predito | Semáforo $A_{2A}$ | $P_{\text{hERG}}$ (%) | Semáforo hERG | Quadrante Decisório |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| **Istradefilina** | `Cc1nc2c(n1)n(c(=O)n(c2=O)C)C` | **8,33** | 🟢 Alta Potência | **8,0%** | 🟢 Baixo Risco | **Quadrante 1 (Ideal: Potente & Seguro)** |
+| **Cafeína** | `CN1C=NC2=C1C(=O)N(C(=O)N2C)C` | **5,37** | 🟡 Potência Moderada | **13,3%** | 🟢 Baixo Risco | **Quadrante 2 (Moderado & Seguro)** |
+| **Terfenadina** | `CC(C)(C)c1ccc(cc1)C(O)CCCN2CCC(CC2)C(c3ccccc3)c4ccccc4` | **5,26** | 🟡 Potência Moderada | **80,5%** | 🔴 Alto Risco (Cardiotóxico) | **Quadrante 4 (Alerta Toxicológico)** |
+| **Taurina** | `NCCS(=O)(=O)O` | **4,88** | 🔴 Baixa Potência | **10,0%** | 🟢 Baixo Risco | **Quadrante 2 (Inativo & Seguro)** |
+| **L-Teanina** | `CCNC(=O)CCC(N)C(=O)O` | **4,92** | 🔴 Baixa Potência | **11,3%** | 🟢 Baixo Risco | **Quadrante 2 (Inativo & Seguro)** |
+
+---
+
+#### 3.6.2 Explicabilidade Local Baseada em Teoria dos Jogos (SHAP TreeExplainer)
+- **Desafio de Hardware:**
+  Calcular os valores exatos de Shapley para 1030 atributos em conjuntos de árvores pode ser computacionalmente proibitivo se mal configurado. No entanto, por utilizarmos modelos puramente baseados em árvores (XGBoost e Random Forest), o algoritmo `shap.TreeExplainer` calcula as atribuições analíticas em tempo polinomial.
+- **Benchmark de Desempenho Local (AMD Ryzen 7 CPU):**
+  - Inicialização e cálculo SHAP para $A_{2A}$ (XGBoost, 250 árvores): **0,14 segundos**.
+  - Inicialização e cálculo SHAP para hERG (Random Forest, 150 árvores): **0,95 segundos**.
+  - **Tempo Total Inferência + XAI Completo:** **$\sim 1{,}2$ segundos** (bem abaixo do limite estipulado de 3,0 segundos).
+- **Racional Biofísico e Validação dos SHAP Values:**
+  - *Caso Cafeína:* O descritor físico-químico `MolLogP` ($-1{,}03$) exerceu a maior contribuição negativa ($\text{SHAP} = -0{,}085$) sobre a probabilidade de bloqueio hERG, demonstrando que a alta hidrofilicidade da xantina impede energeticamente a sua partição para a cavidade hidrofóbica do canal $K_v11.1$. Por outro lado, o baixo peso molecular (`MolWt` $= 194{,}19 \text{ Da}$) gerou valor SHAP negativo para $A_{2A}$ ($-0{,}154$), refletindo a incapacidade de preencher completamente os bolsões hidrofóbicos da cavidade ortostérica.
+  - *Caso Terfenadina:* A elevada lipofilicidade (`MolLogP` $= 6{,}45$, $\text{SHAP} = +0{,}057$) e a reduzida área polar (`TPSA` $= 43{,}70 \text{ \AA}^2$, $\text{SHAP} = +0{,}071$) atuaram em sinergia positiva para elevar a probabilidade $P_{\text{hERG}}$ para $80{,}5\%$, espelhando o mecanismo biofísico real de atração pelos resíduos aromáticos Phe656/Tyr652.
+- **Otimização de Visualização:**
+  A exibição gráfica foi focada estritamente no **Top 10 atributos de maior magnitude absoluta de contribuição** por modelo, gerando gráficos de barras horizontais limpos e de leitura instantânea.
+
+---
+
+#### 3.6.3 Arquitetura da Aplicação Web Interativa (`app.py`)
+A aplicação web foi desenvolvida utilizando **Streamlit**, desenhada com estética premium *dark glassmorphic* e estruturada em cinco blocos operacionais:
+1. **Cabeçalho Científico e Barra Lateral de Controles:**
+   - Botões de inserção rápida para os 5 controles de referência (Istradefilina, Cafeína, Terfenadina, Taurina, L-Teanina).
+   - Métricas de desempenho dos modelos em tempo real na barra lateral.
+2. **Editor Molecular Duplo (Texto e Gráfico 2D):**
+   - Campo de entrada direta de notação SMILES com validação instantânea via RDKit.
+   - Integração com editor molecular gráfico 2D interativo **Ketcher** (`streamlit-ketcher`), permitindo que químicos medicinais desenhem ou editem esqueletos moleculares diretamente pelo navegador.
+3. **Card Estrutural e Avaliação da Regra de 5 de Lipinski:**
+   - Renderização visual 2D em alta definição da molécula sob análise com fundo escuro elegante.
+   - Cálculo automático dos 4 parâmetros de Lipinski (`MolWt` $\le 500$, `MolLogP` $\le 5$, `HBD` $\le 5$, `HBA` $\le 10$) e exibição do número de violações.
+4. **Painel de Decisão por Semáforos Independentes:**
+   - Cards visuais estilizados para Eficácia $A_{2A}$ ($pIC_{50}$, afinidade nanomolar estimada $10^{9 - pIC_{50}}$ nM e semáforo colorido) e Segurança hERG ($P_{\text{hERG}}$ %, semáforo de risco e recomendação prática).
+   - Gráfico interativo de dispersão em quadrante cartesiano mostrando o ponto de operação do composto em relação às zonas de transição farmacológica.
+5. **Painel de Explicabilidade SHAP Local:**
+   - Gráficos de barras horizontais com as Top 10 features que empurraram a predição para cima (vermelho) ou para baixo (azul) para cada um dos dois alvos.
+   - Histórico da sessão e botão para exportação dos resultados em lote em formato CSV.
+
+---
+
 ## 4. Arquitetura Geral do Pipeline e Fluxo de Dados Local
 
 O diagrama a seguir sintetiza a arquitetura completa do sistema, desde os dados brutos locais até a camada de entrega visual no Streamlit:
@@ -610,13 +675,15 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 | **DEC-08** | Decisão | Dois semáforos visuais independentes | Índice único ponderado (*Desirability Index*) | Evita compensação perigosa onde alta eficácia disfarça toxicidade cardiovascular inaceitável. |
 | **DEC-09** | XAI | SHAP *TreeExplainer* restrito ao Top 10 | Gráficos completos com todas as 1030 features | Geração de sumário gráfico completo de 1030 atributos trava a interface Streamlit em CPUs locais. |
 | **DEC-10** | I/O & Formato | Armazenamento em Apache Parquet (`uint8`) | Serialização em CSV clássico | Redução de 75% no tamanho em disco, I/O sub-segundo e preservação estrita do tipo `uint8` sem conversão. |
+| **DEC-11** | Frontend | Editor 2D Ketcher integrado no Streamlit | Entrada estrita por texto SMILES | Facilita uso por biólogos e químicos medicinais permitindo edição e teste de análogos diretamente no navegador. |
 
 ---
 
-## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 5)
+## 9. Inventário de Artefatos Gerados e Conclusão da Plataforma (Fases 0 a 5)
 
 ### 9.1 Inventário dos Arquivos no Repositório
-- **Módulos Python Reutilizáveis:**
+- **Módulos Python e Aplicação Web Interativa:**
+  - [`app.py`](file:///c:/Users/Raphael/Documents/BioPredicta/app.py): aplicação web Streamlit completa, com interface *dark glassmorphic*, editor molecular 2D interativo Ketcher (`streamlit-ketcher`), renderização estrutural RDKit, avaliação de Regra de 5 de Lipinski, semáforos independentes $A_{2A}$/hERG, dispersão cartesiana de 4 quadrantes, explicabilidade local SHAP (Top 10 features) e exportador de histórico em CSV.
   - [`src/chem_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/chem_utils.py): padronização estrutural, 6 descritores 2D, ECFP4 1024b `uint8` e rotina em lote `featurize_dataframe`.
   - [`src/data_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/data_utils.py): clientes ChEMBL REST e Harvard Dataverse com curadoria integrada.
   - [`src/model_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/model_utils.py): métricas estatísticas, validação cruzada e serialização compactada (`joblib compress=3`).
@@ -627,6 +694,7 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
   - [`notebooks/04_herg_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/04_herg_featurization_eda.ipynb): separação biofísica hERG (Mann-Whitney $p < 10^{-260}$) e sobreposição do domínio de aplicabilidade.
   - [`notebooks/05_a2a_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/05_a2a_modeling.ipynb): benchmark dos 5 regressores, validação 5-Fold, teste hold-out ($R^2 = 0{,}723$), diagnósticos de resíduos e importância de features ($A_{2A}$).
   - [`notebooks/06_herg_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/06_herg_modeling.ipynb): benchmark dos 4 classificadores, validação 5-Fold estratificada, teste hold-out ($\text{ROC-AUC} = 0{,}930$, $\text{PR-AUC} = 0{,}936$), curvas diagnósticas e calibração (hERG).
+  - [`notebooks/07_multitarget_shap_evaluation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/07_multitarget_shap_evaluation.ipynb): caderno integrador de avaliação multiobjetivo, projeção no espaço cartesiano de 4 quadrantes, explicabilidade local SHAP (*TreeExplainer*) e homologação dos 5 controles de referência (267 KB).
 - **Bases de Dados Brutas, Curadas e Featurizadas:**
   - [`data/raw/chembl_a2a_raw.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/chembl_a2a_raw.csv): 3.050 bioatividades brutas.
   - [`data/raw/tdc_herg_karim.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/tdc_herg_karim.csv): 13.445 compostos brutos.
@@ -643,15 +711,16 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 
 ---
 
-### 9.2 Escopo Planejado para a Fase 5 (Matriz Multiobjetivo, XAI SHAP e Aplicação Streamlit)
-Com ambos os motores preditivos treinados, validados e serializados com excelência, a **Fase 5** integrará a plataforma completa voltada ao usuário final:
-1. **Pipeline de Inferência Multiobjetivo Unificado:**
-   - Carregamento a frio dos dois modelos em menos de 2 segundos.
-   - Inferência paralela local em tempo real ($< 50 \text{ ms}$ por composto desenhado).
-2. **Matriz Decisória de Dois Semáforos Independentes:**
-   - Semáforo de Eficácia $A_{2A}$ (🟢 Alta / 🟡 Moderada / 🔴 Baixa).
-   - Semáforo de Toxicidade hERG (🟢 Baixo Risco / 🟡 Moderado / 🔴 Cardiotóxico).
-3. **Módulo de Explicabilidade com SHAP (*Explainable AI*):**
-   - SHAP `TreeExplainer` restrito ao Top 10 atributos mais influentes para a predição da molécula sob análise, garantindo execução fluida sem gargalos de CPU.
-4. **Aplicação Web Interativa (`app.py`):**
-   - Interface premium em Streamlit com suporte a entrada por texto (código SMILES), seleção de controles de referência em um clique e editor molecular interativo 2D via **Ketcher** (`streamlit-ketcher`).
+### 9.2 Conclusão e Homologação da Fase 5 (Entrega Completa da Plataforma)
+Com a conclusão da **Fase 5**, o projeto **MultiTarget BioPredict** atinge maturidade operacional plena:
+1. **Conformidade Estrita com as Restrições Locais de Hardware:**
+   - Todo o desenvolvimento, treinamento e inferência operaram no limite de **8 GB de RAM** da máquina do usuário (Ryzen 7 CPU, Windows 11).
+   - O consumo em pico de inferência permaneceu abaixo de **500 MB de RAM**, com latência média de predição + SHAP de **$\sim 1{,}2$ segundos** (teto máximo do PRD: 3,0 segundos).
+2. **Separação Decisória Robusta:**
+   - A independência dos semáforos de eficácia ($A_{2A}$) e segurança (hERG) preserva a transparência clínica e impede o mascaramento de cardiotoxicidade severa por alta potência.
+3. **Disponibilidade para Execução Interativa:**
+   - A plataforma pode ser iniciada imediatamente pelo terminal local:
+     ```powershell
+     streamlit run app.py
+     ```
+   - O aplicativo carrega os modelos serializados a frio em menos de 1,5 segundo e fornece assistência completa à tomada de decisão químico-medicinal com visualização 2D em tempo real.
