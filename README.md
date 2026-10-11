@@ -135,13 +135,22 @@ BioPredicta/
 └── README.md
 ```
 
-### API principal — `src/chem_utils.py`
+### Módulos principais — `src/`
 
+#### `src/chem_utils.py`
 | Função | Descrição |
 |---|---|
 | `canonicalize_smiles(smiles)` | SMILES canônico isomérico; remove sais, neutraliza cargas; `None` se inválido |
 | `compute_2d_descriptors(mol)` | `MolWt`, `MolLogP`, `TPSA`, `NumHDonors`, `NumHAcceptors`, `NumRotatableBonds` |
 | `compute_morgan_fingerprints(mol, radius=2, n_bits=1024)` | Vetor binário ECFP4 (`np.uint8`) |
+
+#### `src/data_utils.py`
+| Função | Descrição |
+|---|---|
+| `fetch_chembl_a2a_dataset()` | Download paginado com cache (`data/raw/chembl_a2a_raw.csv`) de atividades $A_{2A}$ (`CHEMBL251`) |
+| `curate_a2a_dataset(df_raw)` | Curadoria $A_{2A}$: filtro quantitativo, RDKit, $pIC_{50}$ e descarte de discordâncias ($\text{std} > 1.0$) |
+| `download_tdc_dataset(name)` | Download direto do Harvard Dataverse (`tdc_herg_karim.csv`) sem dependência de PyTDC |
+| `curate_herg_dataset(df_raw)` | Curadoria hERG: padronização RDKit, resolução de duplicatas e eliminação de conflitos de rótulo |
 
 ---
 
@@ -150,7 +159,7 @@ BioPredicta/
 | Fase | Descrição | Status |
 |---|---|---|
 | **0** | Preparação do ambiente e do repositório | ✅ **Concluída** |
-| 1 | Aquisição e curadoria de dados (ChEMBL A2A + TDC hERG) | ⏳ Planejada |
+| **1** | Aquisição e curadoria de dados (ChEMBL A2A + TDC hERG) | ✅ **Concluída** |
 | 2 | Featurização e análise exploratória | ⏳ Planejada |
 | 3 | Modelagem A2A (regressão) | ⏳ Planejada |
 | 4 | Modelagem hERG (classificação) | ⏳ Planejada |

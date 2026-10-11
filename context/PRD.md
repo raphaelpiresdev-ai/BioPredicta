@@ -1,4 +1,4 @@
-# PRD v3
+# PRD
 
 # Product Requirements Document (PRD)
 
@@ -29,7 +29,7 @@
 - A aplicação deve aceitar entrada via código `SMILES` estruturado ou desenho gráfico molecular interativo utilizando o componente integrado **`streamlit-ketcher`**.
 - O backend deve higienizar o SMILES via RDKit (conversão de MolBlock/SMILES, remoção de sais, neutralização de cargas quando aplicável e geração de SMILES canônico).
 - O pipeline deve calcular automaticamente os vetores de atributos:
-    - *Morgan Fingerprints* (ECFP4 com raio 2, 1024 bits) forçando tipagem explícita em matrizes `numpy.uint8` (redução de 8x no consumo de RAM frente a matrizes float).
+    - *Morgan Fingerprints* (ECFP4 com raio 2, 1024 bits).
     - Descritores físico-químicos 2D fundamentais: MolWt, MolLogP, TPSA, NumHDonors, NumHAcceptors e NumRotatableBonds.
 
 ### RF-02: Pipeline de Modelagem Preditiva Local
@@ -38,7 +38,7 @@
 | --- | --- | --- |
 | **Tipo de Tarefa** | Regressão Contínua | Classificação Binária com Saída Probabilística Calibrada |
 | **Variável Alvo** | Potência de inibição/ligação ($pIC_{50} = -\log_{10}(IC_{50} \times 10^{-9})$) | Probabilidade contínua $[0, 1]$ de ser um bloqueador hERG ($P_{\text{hERG}}$) |
-| **Fonte dos Dados** | ChEMBL (`CHEMBL251` - Adenosine receptor $A_{2A}$) com $IC_{50}$ e relação `=` | Repositório Therapeutics Data Commons (TDC) via API do Harvard Dataverse **(excluída a biblioteca `PyTDC` para evitar bloat de dependências incompatíveis no Windows)**. |
+| **Fonte dos Dados** | ChEMBL (`CHEMBL251` - Adenosine receptor $A_{2A}$) com $IC_{50}$ e relação `=` | Repositório Therapeutics Data Commons (TDC) / ChEMBL (`CHEMBL240`) |
 | **Algoritmos Avaliados** | Ridge, Random Forest, XGBoost e MLP Regressor | Logistic Regression, Random Forest, XGBoost e MLP Classifier |
 | **Métricas de Aceite** | $R^2 \ge 0{,}65$ e $\text{RMSE} \le 0{,}80$ | $\text{ROC-AUC} \ge 0{,}80$ e $\text{F1-Score} \ge 0{,}75$ |
 
@@ -72,7 +72,7 @@ Baseado exclusivamente na probabilidade contínua calculada pelo modelo de class
 ## 4. Requisitos Não Funcionais
 
 - **Arquitetura 100% Local (Antigravity):** Todo o ciclo de vida do projeto — ingestão de dados, pré-processamento químico, treino supervisionado, validação cruzada 5-fold, serialização e inferência com Streamlit — deve ser realizado estritamente no ambiente local gerenciado pelo Antigravity, sem uso de Google Colab ou serviços em nuvem.
-- **Orçamento de Recursos e Memória:** O consumo de pico de memória RAM durante o treinamento não deve ultrapassar 5 GB, e durante a inferência da aplicação deve se manter abaixo de 2 GB, operando com total fluidez em computadores com 8 GB de RAM e processador Ryzen 7. Para garantir esse teto, processos de Validação Cruzada não devem exceder `n_jobs=2`.
+- **Orçamento de Recursos e Memória:** O consumo de pico de memória RAM durante o treinamento não deve ultrapassar 5 GB, e durante a inferência da aplicação deve se manter abaixo de 2 GB, operando com total fluidez em computadores com 8 GB de RAM e processador Ryzen 7.
 - **Tempo de Resposta de Inferência:** Inferência preditiva completa (cálculo de descritores + predição dos 2 modelos + visualização SHAP Top 10) inferior a 3 segundos por molécula na interface local.
 - **Serialização de Modelos:** Os artefatos finais treinados localmente devem ser serializados em arquivos binários compactados `.joblib` (`compress=3`), garantindo baixo consumo de disco e carregamento instantâneo no aplicativo.
 - **Reprodutibilidade Científica:** Fixação de sementes aleatórias (`random_state=42`) para todas as etapas estocásticas de treinamento local.
