@@ -143,6 +143,7 @@ BioPredicta/
 | `canonicalize_smiles(smiles)` | SMILES canônico isomérico; remove sais, neutraliza cargas; `None` se inválido |
 | `compute_2d_descriptors(mol)` | `MolWt`, `MolLogP`, `TPSA`, `NumHDonors`, `NumHAcceptors`, `NumRotatableBonds` |
 | `compute_morgan_fingerprints(mol, radius=2, n_bits=1024)` | Vetor binário ECFP4 (`np.uint8`) |
+| `featurize_dataframe(df, smiles_col)` | Featurização em lote gerando matriz de 1030 colunas (6 descritores + 1024 bits `uint8`) |
 
 #### `src/data_utils.py`
 | Função | Descrição |
@@ -160,7 +161,7 @@ BioPredicta/
 |---|---|---|
 | **0** | Preparação do ambiente e do repositório | ✅ **Concluída** |
 | **1** | Aquisição e curadoria de dados (ChEMBL A2A + TDC hERG) | ✅ **Concluída** |
-| 2 | Featurização e análise exploratória | ⏳ Planejada |
+| **2** | Featurização e análise exploratória (EDA + Espaço Químico) | ✅ **Concluída** |
 | 3 | Modelagem A2A (regressão) | ⏳ Planejada |
 | 4 | Modelagem hERG (classificação) | ⏳ Planejada |
 | 5 | Score multiobjetivo, explicabilidade (SHAP) e app Streamlit | ⏳ Planejada |

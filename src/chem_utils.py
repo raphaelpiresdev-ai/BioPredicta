@@ -16,6 +16,7 @@ from functools import lru_cache
 from typing import Optional, Union
 
 import numpy as np
+import pandas as pd
 from rdkit import Chem, RDLogger
 from rdkit.Chem import Crippen, Descriptors, Lipinski, rdFingerprintGenerator, rdMolDescriptors
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -34,6 +35,12 @@ DESCRIPTOR_NAMES: tuple[str, ...] = (
     "NumHAcceptors",
     "NumRotatableBonds",
 )
+
+#: Nomes canônicos dos 1024 bits de Morgan ECFP4
+FINGERPRINT_NAMES: tuple[str, ...] = tuple(f"fp_{i}" for i in range(1024))
+
+#: Espaço vetorial completo de atributos (1030 colunas: 6 descritores + 1024 bits)
+FEATURE_NAMES: tuple[str, ...] = DESCRIPTOR_NAMES + FINGERPRINT_NAMES
 
 
 # -----------------------------------------------------------------------------
@@ -175,3 +182,42 @@ def compute_morgan_fingerprints(mol: MolLike, radius: int = 2, n_bits: int = 102
     mol = _ensure_mol(mol)
     fp = _morgan_generator(radius, n_bits).GetFingerprintAsNumPy(mol)
     return fp.astype(np.uint8, copy=False)
+
+
+def featurize_dataframe(
+    df: pd.DataFrame,
+    smiles_col: str = "canonical_smiles",
+    radius: int = 2,
+    n_bits: int = 1024,
+) -> pd.DataFrame:
+    """Calcula os 6 descritores 2D e Morgan Fingerprints (1024 bits uint8) em lote para um DataFrame.
+
+    Para cada linha do DataFrame, converte o SMILES padronizado em molécula RDKit,
+    calcula os descritores físico-químicos e os Morgan Fingerprints (ECFP4),
+    anexando as 1030 colunas de atributos ao DataFrame original.
+
+    Args:
+        df: DataFrame de entrada contendo a coluna de SMILES.
+        smiles_col: Nome da coluna contendo os SMILES canônicos.
+        radius: Raio do ambiente circular de Morgan (2 para ECFP4).
+        n_bits: Quantidade de bits do vetor de Morgan (padrão 1024).
+
+    Returns:
+        DataFrame com colunas originais + 6 descritores 2D + 1024 bits fp_0..fp_1023 (uint8).
+    """
+    if smiles_col not in df.columns:
+        raise ValueError(f"Coluna {smiles_col!r} não encontrada no DataFrame.")
+
+    mols = [Chem.MolFromSmiles(str(s)) for s in df[smiles_col]]
+    
+    # 1. Descritores 2D
+    desc_list = [compute_2d_descriptors(m) for m in mols]
+    df_desc = pd.DataFrame(desc_list, index=df.index)
+
+    # 2. Morgan Fingerprints (uint8)
+    gen = _morgan_generator(radius, n_bits)
+    fp_arrays = [gen.GetFingerprintAsNumPy(m).astype(np.uint8, copy=False) for m in mols]
+    fp_mat = np.vstack(fp_arrays)
+    df_fps = pd.DataFrame(fp_mat, columns=list(FINGERPRINT_NAMES[:n_bits]), index=df.index)
+
+    return pd.concat([df, df_desc, df_fps], axis=1)
