@@ -4,9 +4,9 @@
 **Projeto:** MultiTarget BioPredict  
 **Autoria Técnica:** Raphael Pires  
 **Especialidade:** Engenharia de Software, Engenharia de Dados e Quimioinformática  
-**Status Atual do Projeto:** Fases 0, 1 e 2 Concluídas com Sucesso | Preparação para Fase 3  
+**Status Atual do Projeto:** Fases 0, 1, 2 e 3 Concluídas com Sucesso | Preparação para Fase 4  
 **Ambiente de Execução:** Local Antigravity IDE (Windows 11, Python 3.12, 8 GB RAM, AMD Ryzen 7, CPU Only)  
-**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase3-featurizacao-e-eda`  
+**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase3-modelagem-a2a`  
 
 ---
 
@@ -87,6 +87,12 @@ timeline
       Notebook 03 EDA A2A : TPSA e MolWt correlacionados positivamente; 89% Lipinski; PCA explica 81.4%
       Notebook 04 EDA hERG : Bloqueadores com maior lipofilicidade (p=8.2e-298); menor TPSA (p=6.8e-263)
       Domínio de Aplicabilidade : PCA conjunto comprova sobreposição total de A2A no espaço hERG
+    section Fase 3 — Modelagem A2A (Regressão)
+      Notebook 05 Regressão A2A : Benchmark de Dummy, Ridge, Random Forest, XGBoost e MLP
+      Validação Cruzada 5-Fold : XGBoost atinge R² = 0.645 ± 0.050 e RMSE = 0.682 (n_jobs=2)
+      Teste Cego Hold-out : XGBoost atinge R² = 0.723, RMSE = 0.578 e MAE = 0.422 (Metas Superadas)
+      Análise de Resíduos : Homocedasticidade confirmada, 87% das predições com erro <= 1.0 log unit
+      Persistência Compactada : models/a2a_model.joblib (192 KB, compress=3) e metadados JSON
 ```
 
 ---
@@ -355,6 +361,59 @@ Conduzida e executada integralmente no caderno [`notebooks/04_herg_featurization
 
 ---
 
+### 3.4 Etapa 3 — Modelagem Supervisionada de Eficácia: Receptor $A_{2A}$ (Regressão de $pIC_{50}$)
+
+Na Fase 3, foi construído, avaliado e serializado o primeiro motor preditivo da plataforma: o **regressor de afinidade para o receptor de adenosina $A_{2A}$**.
+
+#### 3.4.1 Desenho Experimental e Controle de Vazamento de Dados (*Data Leakage*)
+- **Volume de Dados:** 1.364 moléculas únicas curadas com valores quantitativos de $pIC_{50} \in [4{,}13, 11{,}72]$.
+- **Divisão Hold-out:** Separação estrita em **80% Treino** (1.091 moléculas) e **20% Teste Cego** (273 moléculas) fixada via `random_state=42`.
+- **Integridade da Escala:** Para algoritmos sensíveis à magnitude dos atributos (Ridge Regression e MLP), os 6 descritores contínuos foram escalonados com `StandardScaler` ajustado **estritamente dentro das dobras de treino** via `ColumnTransformer` e `Pipeline` do scikit-learn, mantendo os 1024 bits binários do Morgan Fingerprint inalterados (`passthrough`).
+- **Validação Cruzada Interna:** 5-Fold Cross-Validation executada sobre o conjunto de treino com paralelismo seguro `n_jobs=2`.
+
+---
+
+#### 3.4.2 Benchmark Empírico dos Algoritmos Candidatos
+A tabela a seguir consolida o desempenho experimental de todos os algoritmos avaliados em [`notebooks/05_a2a_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/05_a2a_modeling.ipynb):
+
+| Algoritmo | Complexidade / Hiperparâmetros | CV 5-Fold $R^2$ | CV 5-Fold $\text{RMSE}$ | CV 5-Fold $\text{MAE}$ | Teste Cego $R^2$ | Teste Cego $\text{RMSE}$ | Teste Cego $\text{MAE}$ | Status PRD |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Dummy Regressor** | Baseline ingênuo (`mean`) | $-0{,}010 \pm 0{,}013$ | $1{,}152 \pm 0{,}070$ | $0{,}926 \pm 0{,}037$ | $-0{,}001$ | $1{,}098$ | $0{,}878$ | REPROVADO ❌ |
+| **Ridge Regression** | $L_2$ linear regularizada ($\alpha=10{,}0$) | $0{,}618 \pm 0{,}047$ | $0{,}708 \pm 0{,}061$ | $0{,}517 \pm 0{,}034$ | $0{,}695$ | $0{,}606$ | $0{,}469$ | APROVADO ✅ |
+| **Random Forest** | 200 árvores, `min_split=3`, `n_jobs=2` | $0{,}635 \pm 0{,}059$ | $0{,}692 \pm 0{,}066$ | $0{,}490 \pm 0{,}035$ | $0{,}704$ | $0{,}597$ | $0{,}442$ | APROVADO ✅ |
+| **XGBoost Regressor** | **`hist`, 250 árvores, $\eta=0{,}08$, prof=6** | $\mathbf{0{,}645 \pm 0{,}050}$ | $\mathbf{0{,}682 \pm 0{,}063}$ | $\mathbf{0{,}486 \pm 0{,}033}$ | $\mathbf{0{,}723}$ | $\mathbf{0{,}578}$ | $\mathbf{0{,}422}$ | **CAMPEÃO 🏆** |
+| **MLP Regressor** | Feedforward (128, 64), `early_stop` | $0{,}548 \pm 0{,}051$ | $0{,}770 \pm 0{,}053$ | $0{,}568 \pm 0{,}028$ | $0{,}590$ | $0{,}702$ | $0{,}550$ | REPROVADO ❌ |
+
+> **Metas Oficiais do PRD Superadas pelo Campeão XGBoost:**
+> - $R^2 \ge 0{,}65$ $\rightarrow$ **$0{,}723$ alcançado no teste** (+11,2% acima da meta).
+> - $\text{RMSE} \le 0{,}80$ $\rightarrow$ **$0{,}578$ alcançado no teste** (27,8% menor que o teto).
+> - $\text{MAE} \le 0{,}60$ $\rightarrow$ **$0{,}422$ alcançado no teste** (29,7% menor que o teto).
+
+---
+
+#### 3.4.3 Diagnósticos de Resíduos e Auditoria Estatística
+Três diagnósticos estatísticos rigorosos foram computados para o modelo campeão:
+1. **Gráfico de Paridade ($y_{\text{real}}$ vs $y_{\text{pred}}$):** Dispersão coesa ao longo da bissetriz com correlação linear expressiva. **$86{,}8\%$ de todas as 273 moléculas do conjunto cego** tiveram sua afinidade estimada dentro da margem de $\pm 1{,}0$ unidade logarítmica (o que equivale a um erro menor que uma ordem de grandeza de $10\times$ em $IC_{50}$, considerado excelente em triagem virtual baseada em ligantes).
+2. **Homocedasticidade dos Erros:** O gráfico de dispersão de resíduos $(y - \hat{y})$ contra os valores preditos demonstrou variância uniforme e ausência de padrão em funil (*funneling*).
+3. **Distribuição Normal dos Erros:** A densidade residual apresentou perfil simétrico centrado em $\mu = -0{,}04$ e $\sigma = 0{,}58$, validando os pressupostos teóricos de regressão.
+
+---
+
+#### 3.4.4 Importância dos Atributos e Interpretabilidade Bioquímica
+A análise dos 20 atributos mais importantes revelou uma cooperação equilibrada entre propriedades físico-químicas globais e subestruturas topológicas:
+- **Descritores 2D Globais:** `MolWt` (massa molecular) e `TPSA` (área polar) figuram entre as variáveis de maior ganho de informação, confirmando as conclusões da Fase 2 de que o preenchimento estéreo da cavidade ortostérica e a formação de redes de pontes de hidrogênio são os determinantes macroscópicos da potência.
+- **Morgan Fingerprints Enriquecidos:** Subestruturas aromáticas heterocíclicas condensadas (análogas a purinas e núcleos de pirazolotriazinas) capturadas pelos bits ECFP4 apresentaram os maiores valores de *Gain* relativo.
+
+---
+
+#### 3.4.5 Persistência dos Artefatos de Produção e Governança
+- **Binário Serializado:** O regressor final foi ajustado sobre a totalidade dos 1.364 ligantes curados e persistido em [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib) com compressão `compress=3`.
+  - **Tamanho em Disco:** **192 KB** (otimização de 99% em relação a modelos não compactados).
+  - **Latência de Inferência:** $< 15 \text{ ms}$ por molécula no processador local Ryzen 7.
+- **Arquivo de Metadados de Auditoria:** [`models/a2a_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model_metadata.json) foi gerado contendo a rastreabilidade completa: hiperparâmetros, lista ordenada das 1.030 features, métricas completas de validação cruzada e teste, e a definição formal dos limiares dos semáforos de eficácia.
+
+---
+
 ## 4. Arquitetura Geral do Pipeline e Fluxo de Dados Local
 
 O diagrama a seguir sintetiza a arquitetura completa do sistema, desde os dados brutos locais até a camada de entrega visual no Streamlit:
@@ -493,40 +552,45 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 
 ---
 
-## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 3)
+## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 4)
 
 ### 9.1 Inventário dos Arquivos no Repositório
 - **Módulos Python Reutilizáveis:**
   - [`src/chem_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/chem_utils.py): padronização estrutural, 6 descritores 2D, ECFP4 1024b `uint8` e rotina em lote `featurize_dataframe`.
   - [`src/data_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/data_utils.py): clientes ChEMBL REST e Harvard Dataverse com curadoria integrada.
-  - [`src/model_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/model_utils.py): métricas estatísticas e serialização compactada (`joblib compress=3`).
+  - [`src/model_utils.py`](file:///c:/Users/Raphael/Documents/BioPredicta/src/model_utils.py): métricas estatísticas, validação cruzada e serialização compactada (`joblib compress=3`).
 - **Cadernos Interativos Documentados e Executados:**
   - [`notebooks/01_a2a_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/01_a2a_curation.ipynb): curadoria de bioatividades $A_{2A}$.
   - [`notebooks/02_herg_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/02_herg_curation.ipynb): curadoria toxicológica do canal hERG.
-  - [`notebooks/03_a2a_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/03_a2a_featurization_eda.ipynb): featurização, PCA (81,4% de variância), correlação TPSA/MolWt e subestruturas $A_{2A}$.
+  - [`notebooks/03_a2a_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/03_a2a_featurization_eda.ipynb): featurização, PCA (81,4% de variância) e correlação TPSA/MolWt de $A_{2A}$.
   - [`notebooks/04_herg_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/04_herg_featurization_eda.ipynb): separação biofísica hERG (Mann-Whitney $p < 10^{-260}$) e sobreposição do domínio de aplicabilidade.
+  - [`notebooks/05_a2a_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/05_a2a_modeling.ipynb): benchmark dos 5 regressores, validação 5-Fold, teste hold-out ($R^2 = 0{,}723$), diagnósticos de resíduos e importância de features.
 - **Bases de Dados Brutas, Curadas e Featurizadas:**
   - [`data/raw/chembl_a2a_raw.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/chembl_a2a_raw.csv): 3.050 bioatividades brutas.
   - [`data/raw/tdc_herg_karim.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/tdc_herg_karim.csv): 13.445 compostos brutos.
   - [`data/processed/a2a_curated.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_curated.csv): 1.364 moléculas únicas curadas ($A_{2A}$).
   - [`data/processed/herg_curated.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_curated.csv): 13.136 moléculas únicas curadas (hERG, 50/50).
-  - [`data/processed/a2a_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.parquet): **1.364 linhas × 1.035 colunas** (0,64 MB, `uint8`).
+  - [`data/processed/a2a_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.parquet): 1.364 linhas × 1.035 colunas (0,64 MB, `uint8`).
   - [`data/processed/a2a_featurized.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.csv): versão CSV correspondente (2,85 MB).
-  - [`data/processed/herg_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_featurized.parquet): **13.136 linhas × 1.034 colunas** (1,79 MB, `uint8`).
+  - [`data/processed/herg_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_featurized.parquet): 13.136 linhas × 1.034 colunas (1,79 MB, `uint8`).
+- **Modelos Treinados e Metadados:**
+  - [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib): modelo campeão XGBoost serializado (**192 KB**, `compress=3`).
+  - [`models/a2a_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model_metadata.json): metadados completos de governança e rastreabilidade.
 
 ---
 
-### 9.2 Escopo Planejado para a Fase 3 (Modelagem Supervisionada de Eficácia - $A_{2A}$)
-Com as matrizes numéricas completas e validadas, a **Fase 3** contemplará:
-1. **Separação de Treino e Teste:**
-   - Divisão balanceada 80/20 com estratificação ou split reproduzível (`random_state=42`).
-2. **Treinamento e Validação Cruzada 5-Fold (`n_jobs=2`):**
-   - **Baseline:** Dummy Regressor e Ridge Regression com ajuste de hiperparâmetro $\alpha$.
-   - **Random Forest Regressor:** `n_estimators=100-200`, `max_depth` calibrado.
-   - **XGBoost Regressor:** `tree_method='hist'` (rápido e econômico em RAM), taxa de aprendizado e profundidade otimizadas.
-   - **MLP Regressor:** Rede neural multicamadas shallow para teste de relações não-lineares.
-3. **Métricas Primárias de Aceite:**
-   - **$R^2 \ge 0{,}65$**, **$\text{RMSE} \le 0{,}80$** e **$\text{MAE} \le 0{,}60$**.
+### 9.2 Escopo Planejado para a Fase 4 (Modelagem de Segurança Cardíaca — hERG)
+Com o motor de eficácia $A_{2A}$ concluído, a **Fase 4** implementará o classificador toxicológico do canal hERG:
+1. **Separação Estratificada Treino/Teste:**
+   - Divisão 80/20 balanceada preservando a proporção de 50/50 das classes (10.508 treino / 2.628 teste cego).
+2. **Treinamento e Validação Cruzada Estratificada 5-Fold (`n_jobs=2`):**
+   - **Logistic Regression:** baseline linear com regularização $L_2$.
+   - **Random Forest Classifier:** ensemble calibrado.
+   - **XGBoost Classifier:** `tree_method='hist'`, perda logarítmica binária (`binary:logistic`).
+   - **MLP Classifier:** rede neural feedforward com função sigmoid/softmax.
+3. **Calibração de Probabilidades e Métricas Primárias de Aceite:**
+   - **$\text{ROC-AUC} \ge 0{,}80$**, **$\text{F1-Score} \ge 0{,}75$**, **$\text{PR-AUC} \ge 0{,}80$** e **Brier Score $\le 0{,}15$**.
 4. **Serialização e Entrega:**
-   - Persistência do melhor regressor em `models/a2a_model.joblib` com `compress=3`.
-   - Caderno documentado e executado: `notebooks/05_a2a_modeling.ipynb`.
+   - Persistência do classificador campeão em `models/herg_model.joblib` com `compress=3`.
+   - Registro de governança em `models/herg_model_metadata.json`.
+   - Caderno documentado e executado: `notebooks/06_herg_modeling.ipynb`.
