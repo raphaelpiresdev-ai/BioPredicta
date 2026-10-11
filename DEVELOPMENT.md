@@ -4,9 +4,9 @@
 **Projeto:** MultiTarget BioPredict  
 **Autoria Técnica:** Raphael Pires  
 **Especialidade:** Engenharia de Software, Engenharia de Dados e Quimioinformática  
-**Status Atual do Projeto:** Fases 0, 1, 2 e 3 Concluídas com Sucesso | Preparação para Fase 4  
+**Status Atual do Projeto:** Fases 0, 1, 2, 3 e 4 Concluídas com Sucesso | Preparação para Fase 5  
 **Ambiente de Execução:** Local Antigravity IDE (Windows 11, Python 3.12, 8 GB RAM, AMD Ryzen 7, CPU Only)  
-**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase3-modelagem-a2a`  
+**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase4-modelagem-herg`  
 
 ---
 
@@ -93,6 +93,12 @@ timeline
       Teste Cego Hold-out : XGBoost atinge R² = 0.723, RMSE = 0.578 e MAE = 0.422 (Metas Superadas)
       Análise de Resíduos : Homocedasticidade confirmada, 87% das predições com erro <= 1.0 log unit
       Persistência Compactada : models/a2a_model.joblib (192 KB, compress=3) e metadados JSON
+    section Fase 4 — Modelagem hERG (Classificação)
+      Notebook 06 Classificação hERG : Benchmark de Logistic Regression, Random Forest, XGBoost e MLP
+      Validação Cruzada 5-Fold : Random Forest atinge ROC-AUC = 0.917 ± 0.005 e F1 = 0.839 (n_jobs=2)
+      Teste Cego Hold-out : Random Forest atinge ROC-AUC = 0.930, PR-AUC = 0.936, F1 = 0.853 (Metas Superadas)
+      Calibração de Probabilidades : Brier Score = 0.112 (excelente calibração contínua)
+      Persistência Compactada : models/herg_model.joblib (9.66 MB, compress=3) e metadados JSON
 ```
 
 ---
@@ -414,6 +420,61 @@ A análise dos 20 atributos mais importantes revelou uma cooperação equilibrad
 
 ---
 
+### 3.5 Etapa 4 — Modelagem Supervisionada de Segurança Cardíaca: Canal hERG (Classificação Binária Calibrada)
+
+Na Fase 4, construiu-se e homologou-se o segundo motor preditivo central da plataforma: o **classificador toxicológico do canal de potássio $K_v11.1$ (hERG)**.
+
+#### 3.5.1 Desenho Experimental e Controle de Balanceamento
+- **Volume de Dados:** 13.136 moléculas únicas curadas com distribuição perfeitamente balanceada de classes (6.570 bloqueadores / 6.566 seguros, proporção exata de 50/50).
+- **Divisão Estratificada Hold-out:** Divisão 80/20 estratificada preservando o equilíbrio de classes: **10.508 moléculas no treino** e **2.628 moléculas no teste cego hold-out** (`random_state=42`).
+- **Validação Cruzada Interna:** Stratified 5-Fold Cross-Validation no treino (`n_jobs=2`), garantindo paralelismo estável no teto de 8 GB de RAM.
+- **Calibração de Probabilidades:** Ênfase estrita na métrica de *Brier Score*, garantindo que as probabilidades estimadas $P_{\text{hERG}} \in [0, 1]$ reflitam com fidelidade o risco cardiotóxico real e não apenas uma separação binária arbitrária.
+
+---
+
+#### 3.5.2 Benchmark Empírico dos Classificadores Candidatos
+A tabela a seguir consolida o desempenho experimental dos 4 classificadores avaliados em [`notebooks/06_herg_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/06_herg_modeling.ipynb):
+
+| Algoritmo | Configuração / Hiperparâmetros | CV 5-Fold ROC-AUC | CV 5-Fold PR-AUC | CV 5-Fold F1-Score | Teste Cego ROC-AUC | Teste Cego PR-AUC | Teste Cego F1-Score | Teste Cego Brier Score | Status PRD |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Logistic Regression** | $L_2$ ($C=1.0$) + Scaler 2D | $0{,}839 \pm 0{,}005$ | $0{,}839 \pm 0{,}005$ | $0{,}761 \pm 0{,}006$ | $0{,}852$ | $0{,}858$ | $0{,}769$ | $0{,}158$ | APROVADO ✅ |
+| **Random Forest** | **150 árvores, `min_split=4`, `n_jobs=2`** | $\mathbf{0{,}917 \pm 0{,}005}$ | $\mathbf{0{,}921 \pm 0{,}005}$ | $\mathbf{0{,}839 \pm 0{,}005}$ | $\mathbf{0{,}930}$ | $\mathbf{0{,}936}$ | $\mathbf{0{,}853}$ | $\mathbf{0{,}112}$ | **CAMPEÃO 🏆** |
+| **XGBoost Classifier** | `hist`, 250 árvores, $\eta=0{,}08$, prof=6 | $0{,}900 \pm 0{,}004$ | $0{,}903 \pm 0{,}004$ | $0{,}819 \pm 0{,}005$ | $0{,}911$ | $0{,}917$ | $0{,}834$ | $0{,}121$ | APROVADO ✅ |
+| **MLP Classifier** | Feedforward (128, 64) + Scaler 2D | $0{,}892 \pm 0{,}002$ | $0{,}895 \pm 0{,}003$ | $0{,}820 \pm 0{,}004$ | $0{,}917$ | $0{,}919$ | $0{,}847$ | $0{,}131$ | APROVADO ✅ |
+
+> **Metas Oficiais do PRD Superadas pelo Campeão Random Forest:**
+> - $\text{ROC-AUC} \ge 0{,}80$ $\rightarrow$ **$0{,}930$ alcançado no teste** (+16,3% acima da meta).
+> - $\text{PR-AUC} \ge 0{,}80$ $\rightarrow$ **$0{,}936$ alcançado no teste** (+17,0% acima da meta).
+> - $\text{F1-Score} \ge 0{,}75$ $\rightarrow$ **$0{,}853$ alcançado no teste** (+13,7% acima da meta).
+> - $\text{Brier Score} \le 0{,}15$ $\rightarrow$ **$0{,}112$ alcançado no teste** (25,3% mais calibrado que o teto).
+> - Acurácia Balanceada: **$85{,}4\%$** | Coeficiente de Matthews (MCC): **$0{,}709$**.
+
+---
+
+#### 3.5.3 Diagnósticos de Classificação e Calibração Clínica
+O modelo campeão foi submetido a quatro diagnósticos visuais e quantitativos:
+1. **Curva ROC e Curva Precision-Recall:** Comprovaram discriminação excelente em todo o espectro de limiares operacionais ($\text{ROC-AUC} = 0{,}930$ e $\text{PR-AUC} = 0{,}936$ contra linha base de $50\%$).
+2. **Diagrama de Confiabilidade (*Calibration Curve*):** A curva de calibração apresentou alinhamento quase perfeito com a diagonal de calibração ideal, confirmando que quando o modelo estima $P_{\text{hERG}} = 70\%$, aproximadamente $70\%$ das moléculas ensaiadas são de fato bloqueadoras. O *Brier Score* de **$0{,}112$** atesta a ausência de excesso de confiança (*overconfidence*).
+3. **Matriz de Confusão:** No teste cego de 2.628 moléculas, o modelo acertou **85,4% dos compostos seguros** (1.122 verdadeiros negativos) e **85,4% dos bloqueadores** (1.122 verdadeiros positivos), evidenciando comportamento estritamente simétrico e sem viés de predição.
+
+---
+
+#### 3.5.4 Racional Estrutural e Importância dos Atributos
+A inspeção dos 20 atributos mais importantes do Random Forest corroborou os fundamentos da farmacologia estrutural do canal hERG:
+- **`MolLogP` (Lipofilicidade):** Figura como o descritor mais influente de todo o modelo, refletindo a atração termodinâmica favorável de moléculas hidrofóbicas para o poro central lipofílico revestido pelos anéis aromáticos de Tyr652 e Phe656.
+- **`TPSA` (Área de Superfície Polar) e `NumRotatableBonds`:** Compostos com menor área polar e maior flexibilidade conformacional penetram na cavidade sem grande penalidade de desolvatação e adotam conformações tridimensionais que maximizam o empilhamento $\pi$-$\pi$.
+- **Morgan Bits Básicos e Aromáticos:** Subestruturas contendo aminas terciárias protonáveis (propícias a interações cátion-$\pi$) e anéis aromáticos hidrofóbicos dominaram os bits topológicos de maior importância relativa.
+
+---
+
+#### 3.5.5 Persistência dos Artefatos de Produção e Governança
+- **Binário Serializado:** O classificador final foi ajustado sobre a totalidade dos 13.136 compostos curados e persistido em [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib) com compressão `compress=3`.
+  - **Tamanho em Disco:** **9,66 MB** (armazenamento leve e carregamento a frio em $< 1$ segundo).
+  - **Latência de Inferência:** $< 20 \text{ ms}$ por molécula no processador local Ryzen 7.
+- **Arquivo de Metadados de Auditoria:** [`models/herg_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model_metadata.json) foi gerado contendo o registro de classes, hiperparâmetros, lista ordenada das 1.030 features, métricas completas de validação cruzada/teste e a definição formal dos limiares do semáforo de cardiotoxicidade.
+
+---
+
 ## 4. Arquitetura Geral do Pipeline e Fluxo de Dados Local
 
 O diagrama a seguir sintetiza a arquitetura completa do sistema, desde os dados brutos locais até a camada de entrega visual no Streamlit:
@@ -552,7 +613,7 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 
 ---
 
-## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 4)
+## 9. Inventário de Artefatos Gerados e Próximos Passos (Fase 5)
 
 ### 9.1 Inventário dos Arquivos no Repositório
 - **Módulos Python Reutilizáveis:**
@@ -564,7 +625,8 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
   - [`notebooks/02_herg_curation.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/02_herg_curation.ipynb): curadoria toxicológica do canal hERG.
   - [`notebooks/03_a2a_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/03_a2a_featurization_eda.ipynb): featurização, PCA (81,4% de variância) e correlação TPSA/MolWt de $A_{2A}$.
   - [`notebooks/04_herg_featurization_eda.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/04_herg_featurization_eda.ipynb): separação biofísica hERG (Mann-Whitney $p < 10^{-260}$) e sobreposição do domínio de aplicabilidade.
-  - [`notebooks/05_a2a_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/05_a2a_modeling.ipynb): benchmark dos 5 regressores, validação 5-Fold, teste hold-out ($R^2 = 0{,}723$), diagnósticos de resíduos e importância de features.
+  - [`notebooks/05_a2a_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/05_a2a_modeling.ipynb): benchmark dos 5 regressores, validação 5-Fold, teste hold-out ($R^2 = 0{,}723$), diagnósticos de resíduos e importância de features ($A_{2A}$).
+  - [`notebooks/06_herg_modeling.ipynb`](file:///c:/Users/Raphael/Documents/BioPredicta/notebooks/06_herg_modeling.ipynb): benchmark dos 4 classificadores, validação 5-Fold estratificada, teste hold-out ($\text{ROC-AUC} = 0{,}930$, $\text{PR-AUC} = 0{,}936$), curvas diagnósticas e calibração (hERG).
 - **Bases de Dados Brutas, Curadas e Featurizadas:**
   - [`data/raw/chembl_a2a_raw.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/chembl_a2a_raw.csv): 3.050 bioatividades brutas.
   - [`data/raw/tdc_herg_karim.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/raw/tdc_herg_karim.csv): 13.445 compostos brutos.
@@ -573,24 +635,23 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
   - [`data/processed/a2a_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.parquet): 1.364 linhas × 1.035 colunas (0,64 MB, `uint8`).
   - [`data/processed/a2a_featurized.csv`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/a2a_featurized.csv): versão CSV correspondente (2,85 MB).
   - [`data/processed/herg_featurized.parquet`](file:///c:/Users/Raphael/Documents/BioPredicta/data/processed/herg_featurized.parquet): 13.136 linhas × 1.034 colunas (1,79 MB, `uint8`).
-- **Modelos Treinados e Metadados:**
-  - [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib): modelo campeão XGBoost serializado (**192 KB**, `compress=3`).
-  - [`models/a2a_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model_metadata.json): metadados completos de governança e rastreabilidade.
+- **Modelos Treinados e Metadados Serializados:**
+  - [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib): modelo campeão XGBoost regressor ($R^2 = 0{,}723$, **192 KB**).
+  - [`models/a2a_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model_metadata.json): metadados de governança $A_{2A}$.
+  - [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib): modelo campeão Random Forest classificador ($\text{ROC-AUC} = 0{,}930$, **9,66 MB**).
+  - [`models/herg_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model_metadata.json): metadados de governança hERG.
 
 ---
 
-### 9.2 Escopo Planejado para a Fase 4 (Modelagem de Segurança Cardíaca — hERG)
-Com o motor de eficácia $A_{2A}$ concluído, a **Fase 4** implementará o classificador toxicológico do canal hERG:
-1. **Separação Estratificada Treino/Teste:**
-   - Divisão 80/20 balanceada preservando a proporção de 50/50 das classes (10.508 treino / 2.628 teste cego).
-2. **Treinamento e Validação Cruzada Estratificada 5-Fold (`n_jobs=2`):**
-   - **Logistic Regression:** baseline linear com regularização $L_2$.
-   - **Random Forest Classifier:** ensemble calibrado.
-   - **XGBoost Classifier:** `tree_method='hist'`, perda logarítmica binária (`binary:logistic`).
-   - **MLP Classifier:** rede neural feedforward com função sigmoid/softmax.
-3. **Calibração de Probabilidades e Métricas Primárias de Aceite:**
-   - **$\text{ROC-AUC} \ge 0{,}80$**, **$\text{F1-Score} \ge 0{,}75$**, **$\text{PR-AUC} \ge 0{,}80$** e **Brier Score $\le 0{,}15$**.
-4. **Serialização e Entrega:**
-   - Persistência do classificador campeão em `models/herg_model.joblib` com `compress=3`.
-   - Registro de governança em `models/herg_model_metadata.json`.
-   - Caderno documentado e executado: `notebooks/06_herg_modeling.ipynb`.
+### 9.2 Escopo Planejado para a Fase 5 (Matriz Multiobjetivo, XAI SHAP e Aplicação Streamlit)
+Com ambos os motores preditivos treinados, validados e serializados com excelência, a **Fase 5** integrará a plataforma completa voltada ao usuário final:
+1. **Pipeline de Inferência Multiobjetivo Unificado:**
+   - Carregamento a frio dos dois modelos em menos de 2 segundos.
+   - Inferência paralela local em tempo real ($< 50 \text{ ms}$ por composto desenhado).
+2. **Matriz Decisória de Dois Semáforos Independentes:**
+   - Semáforo de Eficácia $A_{2A}$ (🟢 Alta / 🟡 Moderada / 🔴 Baixa).
+   - Semáforo de Toxicidade hERG (🟢 Baixo Risco / 🟡 Moderado / 🔴 Cardiotóxico).
+3. **Módulo de Explicabilidade com SHAP (*Explainable AI*):**
+   - SHAP `TreeExplainer` restrito ao Top 10 atributos mais influentes para a predição da molécula sob análise, garantindo execução fluida sem gargalos de CPU.
+4. **Aplicação Web Interativa (`app.py`):**
+   - Interface premium em Streamlit com suporte a entrada por texto (código SMILES), seleção de controles de referência em um clique e editor molecular interativo 2D via **Ketcher** (`streamlit-ketcher`).
