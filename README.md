@@ -162,7 +162,7 @@ BioPredicta/
 | **0** | Preparação do ambiente e do repositório | ✅ **Concluída** |
 | **1** | Aquisição e curadoria de dados (ChEMBL A2A + TDC hERG) | ✅ **Concluída** |
 | **2** | Featurização e análise exploratória (EDA + Espaço Químico) | ✅ **Concluída** |
-| 3 | Modelagem A2A (regressão) | ⏳ Planejada |
+| **3** | Modelagem A2A (regressão de pIC50 - XGBoost R²=0.723) | ✅ **Concluída** |
 | 4 | Modelagem hERG (classificação) | ⏳ Planejada |
 | 5 | Score multiobjetivo, explicabilidade (SHAP) e app Streamlit | ⏳ Planejada |
 
