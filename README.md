@@ -9,7 +9,7 @@
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-orange.svg)](https://scikit-learn.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-3.4-red.svg)](https://xgboost.ai/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.65-ff4b4b.svg)](https://streamlit.io/)
-[![Status](https://img.shields.io/badge/Fase_0-conclu%C3%ADda-success.svg)](#-status-do-projeto)
+[![Status](https://img.shields.io/badge/Fases_0_a_5-conclu%C3%ADdas-success.svg)](#-status-do-projeto)
 
 </div>
 
@@ -164,7 +164,7 @@ BioPredicta/
 | **2** | Featurização e análise exploratória (EDA + Espaço Químico) | ✅ **Concluída** |
 | **3** | Modelagem A2A (regressão de pIC50 - XGBoost R²=0.723) | ✅ **Concluída** |
 | **4** | Modelagem hERG (classificação de cardiotoxicidade - Random Forest ROC-AUC=0.930) | ✅ **Concluída** |
-| 5 | Score multiobjetivo, explicabilidade (SHAP) e app Streamlit | ⏳ Planejada |
+| **5** | Score multiobjetivo, explicabilidade (SHAP) e app Streamlit | ✅ **Concluída** |
 
 ---
 
