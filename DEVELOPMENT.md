@@ -97,12 +97,12 @@ timeline
       Notebook 06 Classificação hERG : Benchmark de Logistic Regression, Random Forest, XGBoost e MLP
       Validação Cruzada 5-Fold : Random Forest atinge ROC-AUC = 0.917 ± 0.005 e F1 = 0.839 (n_jobs=2)
       Teste Cego Hold-out : Random Forest atinge ROC-AUC = 0.930, PR-AUC = 0.936, F1 = 0.853 (Metas Superadas)
-      Calibração de Probabilidades : Brier Score = 0.112 (excelente calibração contínua)
-      Persistência Compactada : models/herg_model.joblib (9.66 MB, compress=3) e metadados JSON
+      Avaliação de Escores no Holdout : Brier Score = 0.112 (predict_proba sem calibração pós-hoc formal)
+      Persistência Compactada : models/herg_model.joblib (9.66 MB, compress=3, refit 100%) e metadados JSON
     section Fase 5 — Score Multiobjetivo, SHAP e App Streamlit
       Notebook 07 Avaliação Multiobjetivo : Predições pareadas A2A/hERG e matriz de dispersão de 4 quadrantes
       Benchmark SHAP TreeExplainer : Atribuição de importância local em < 1.2s para as Top 10 features
-      Homologação Farmacológica : Controles Istradefilina, Cafeína e Terfenadina confirmam semáforos biológicos
+      Avaliação de Controles Farmacológicos : Istradefilina (CHEMBL431770) e Cafeína (CHEMBL113) in-sample A2A; Terfenadina (CHEMBL22) out-of-sample
       Aplicação Web Streamlit : UI dark glassmorphic, editor 2D Ketcher, semáforos independentes e exportação CSV
 ```
 
@@ -418,22 +418,23 @@ A análise dos 20 atributos mais importantes revelou uma cooperação equilibrad
 ---
 
 #### 3.4.5 Persistência dos Artefatos de Produção e Governança
-- **Binário Serializado:** O regressor final foi ajustado sobre a totalidade dos 1.364 ligantes curados e persistido em [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib) com compressão `compress=3`.
+- **Binário Serializado (Reajuste em 100% dos Dados):** Após a avaliação na divisão holdout 80/20 ($n_{\text{treino}} = 1.091$, $n_{\text{teste}} = 273$), o regressor final foi reajustado (*refit*) sobre a totalidade dos 1.364 ligantes curados e persistido em [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib) com compressão `compress=3`.
+  - **Aviso de Governança e Validação:** As métricas de teste ($R^2 = 0{,}723$, $\text{RMSE} = 0{,}578$, $\text{MAE} = 0{,}422$) pertencem exclusivamente à etapa de avaliação holdout 80/20 anterior ao ajuste final. Predições emitidas pelo artefato serializado sobre compostos presentes nos 1.364 registros de treinamento (como **Cafeína [`CHEMBL113`]** e **Istradefilina [`CHEMBL431770`]**) são avaliações *in-sample* e **não constituem validação externa independente (*out-of-sample*)**.
   - **Tamanho em Disco:** **192 KB** (otimização de 99% em relação a modelos não compactados).
   - **Latência de Inferência:** $< 15 \text{ ms}$ por molécula no processador local Ryzen 7.
-- **Arquivo de Metadados de Auditoria:** [`models/a2a_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model_metadata.json) foi gerado contendo a rastreabilidade completa: hiperparâmetros, lista ordenada das 1.030 features, métricas completas de validação cruzada e teste, e a definição formal dos limiares dos semáforos de eficácia.
+- **Arquivo de Metadados de Auditoria:** [`models/a2a_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model_metadata.json) foi gerado contendo a rastreabilidade completa: hiperparâmetros, lista ordenada das 1.030 features, métricas completas de validação cruzada e teste holdout 80/20, e a definição formal dos limiares operacionais de eficácia.
 
 ---
 
-### 3.5 Etapa 4 — Modelagem Supervisionada de Segurança Cardíaca: Canal hERG (Classificação Binária Calibrada)
+### 3.5 Etapa 4 — Modelagem Supervisionada de Triagem Cardíaca: Canal hERG (Classificação Binária com Escore de Probabilidade Estimado)
 
-Na Fase 4, construiu-se e homologou-se o segundo motor preditivo central da plataforma: o **classificador toxicológico do canal de potássio $K_v11.1$ (hERG)**.
+Na Fase 4, construiu-se e avaliou-se o segundo motor preditivo central da plataforma: o **classificador de bloqueio do canal de potássio $K_v11.1$ (hERG)**.
 
 #### 3.5.1 Desenho Experimental e Controle de Balanceamento
-- **Volume de Dados:** 13.136 moléculas únicas curadas com distribuição perfeitamente balanceada de classes (6.570 bloqueadores / 6.566 seguros, proporção exata de 50/50).
+- **Volume de Dados:** 13.136 moléculas únicas curadas com distribuição perfeitamente balanceada de classes (6.570 bloqueadores / 6.566 não-bloqueadores, proporção exata de 50/50).
 - **Divisão Estratificada Hold-out:** Divisão 80/20 estratificada preservando o equilíbrio de classes: **10.508 moléculas no treino** e **2.628 moléculas no teste cego hold-out** (`random_state=42`).
 - **Validação Cruzada Interna:** Stratified 5-Fold Cross-Validation no treino (`n_jobs=2`), garantindo paralelismo estável no teto de 8 GB de RAM.
-- **Calibração de Probabilidades:** Ênfase estrita na métrica de *Brier Score*, garantindo que as probabilidades estimadas $P_{\text{hERG}} \in [0, 1]$ reflitam com fidelidade o risco cardiotóxico real e não apenas uma separação binária arbitrária.
+- **Escore de Probabilidade Estimado e Brier Score:** Os classificadores produzem escores contínuos $P_{\text{hERG}} \in [0, 1]$ via `predict_proba()`. A métrica de *Brier Score* foi monitorada no conjunto holdout 80/20 para quantificar o erro quadrático médio dos escores preditos, sem aplicação de etapa adicional de calibração probabilística pós-hoc (`CalibratedClassifierCV`). Portanto, $P_{\text{hERG}}$ deve ser interpretado como um **escore de probabilidade estimado pelo modelo**, e não diretamente como probabilidade clínica validada de cardiotoxicidade.
 
 ---
 
@@ -447,20 +448,20 @@ A tabela a seguir consolida o desempenho experimental dos 4 classificadores aval
 | **XGBoost Classifier** | `hist`, 250 árvores, $\eta=0{,}08$, prof=6 | $0{,}900 \pm 0{,}004$ | $0{,}903 \pm 0{,}004$ | $0{,}819 \pm 0{,}005$ | $0{,}911$ | $0{,}917$ | $0{,}834$ | $0{,}121$ | APROVADO ✅ |
 | **MLP Classifier** | Feedforward (128, 64) + Scaler 2D | $0{,}892 \pm 0{,}002$ | $0{,}895 \pm 0{,}003$ | $0{,}820 \pm 0{,}004$ | $0{,}917$ | $0{,}919$ | $0{,}847$ | $0{,}131$ | APROVADO ✅ |
 
-> **Metas Oficiais do PRD Superadas pelo Campeão Random Forest:**
+> **Metas Oficiais do PRD Superadas pelo Campeão Random Forest (Avaliação Holdout 80/20):**
 > - $\text{ROC-AUC} \ge 0{,}80$ $\rightarrow$ **$0{,}930$ alcançado no teste** (+16,3% acima da meta).
 > - $\text{PR-AUC} \ge 0{,}80$ $\rightarrow$ **$0{,}936$ alcançado no teste** (+17,0% acima da meta).
 > - $\text{F1-Score} \ge 0{,}75$ $\rightarrow$ **$0{,}853$ alcançado no teste** (+13,7% acima da meta).
-> - $\text{Brier Score} \le 0{,}15$ $\rightarrow$ **$0{,}112$ alcançado no teste** (25,3% mais calibrado que o teto).
+> - $\text{Brier Score} \le 0{,}15$ $\rightarrow$ **$0{,}112$ alcançado no teste** (abaixo do teto de $0{,}15$; nota: o Brier Score isoladamente mede erro quadrático no holdout e não equivale a calibração probabilística clínica formal).
 > - Acurácia Balanceada: **$85{,}4\%$** | Coeficiente de Matthews (MCC): **$0{,}709$**.
 
 ---
 
-#### 3.5.3 Diagnósticos de Classificação e Calibração Clínica
-O modelo campeão foi submetido a quatro diagnósticos visuais e quantitativos:
-1. **Curva ROC e Curva Precision-Recall:** Comprovaram discriminação excelente em todo o espectro de limiares operacionais ($\text{ROC-AUC} = 0{,}930$ e $\text{PR-AUC} = 0{,}936$ contra linha base de $50\%$).
-2. **Diagrama de Confiabilidade (*Calibration Curve*):** A curva de calibração apresentou alinhamento quase perfeito com a diagonal de calibração ideal, confirmando que quando o modelo estima $P_{\text{hERG}} = 70\%$, aproximadamente $70\%$ das moléculas ensaiadas são de fato bloqueadoras. O *Brier Score* de **$0{,}112$** atesta a ausência de excesso de confiança (*overconfidence*).
-3. **Matriz de Confusão:** No teste cego de 2.628 moléculas, o modelo acertou **85,4% dos compostos seguros** (1.122 verdadeiros negativos) e **85,4% dos bloqueadores** (1.122 verdadeiros positivos), evidenciando comportamento estritamente simétrico e sem viés de predição.
+#### 3.5.3 Diagnósticos de Classificação e Avaliação de Escores no Holdout
+O modelo campeão foi submetido a diagnósticos quantitativos na partição de teste holdout (2.628 moléculas, anterior ao reajuste final em 100% dos dados):
+1. **Curva ROC e Curva Precision-Recall:** Comprovaram capacidade discriminativa em todo o espectro de limiares operacionais ($\text{ROC-AUC} = 0{,}930$ e $\text{PR-AUC} = 0{,}936$ contra linha base de $50\%$).
+2. **Diagrama de Confiabilidade (*Reliability Diagram*) e Brier Score:** Avaliados sobre o holdout 80/20 ($\text{Brier Score} = 0{,}112$) para inspecionar o comportamento empírico de `predict_proba()` do `RandomForestClassifier` (que permanece sem transformador pós-hoc de calibração).
+3. **Matriz de Confusão:** No teste cego de 2.628 moléculas, o modelo classificou corretamente **85,4% dos compostos não-bloqueadores** e **85,4% dos bloqueadores** no corte binário padrão de $0{,}50$.
 
 ---
 
@@ -473,35 +474,36 @@ A inspeção dos 20 atributos mais importantes do Random Forest corroborou os fu
 ---
 
 #### 3.5.5 Persistência dos Artefatos de Produção e Governança
-- **Binário Serializado:** O classificador final foi ajustado sobre a totalidade dos 13.136 compostos curados e persistido em [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib) com compressão `compress=3`.
+- **Binário Serializado (Reajuste em 100% dos Dados):** Após a avaliação no holdout 80/20, o classificador final foi reajustado (*refit*) sobre a totalidade dos 13.136 compostos curados e persistido em [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib) com compressão `compress=3`.
+  - **Aviso de Governança e Validação:** As métricas de teste ($\text{ROC-AUC} = 0{,}930$, $\text{PR-AUC} = 0{,}936$, $\text{F1} = 0{,}853$, $\text{Brier} = 0{,}112$) referem-se à avaliação holdout 80/20 anterior ao ajuste final em 100% dos dados. Predições sobre moléculas pertencentes ao conjunto de treinamento hERG não constituem avaliação independente.
   - **Tamanho em Disco:** **9,66 MB** (armazenamento leve e carregamento a frio em $< 1$ segundo).
   - **Latência de Inferência:** $< 20 \text{ ms}$ por molécula no processador local Ryzen 7.
-- **Arquivo de Metadados de Auditoria:** [`models/herg_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model_metadata.json) foi gerado contendo o registro de classes, hiperparâmetros, lista ordenada das 1.030 features, métricas completas de validação cruzada/teste e a definição formal dos limiares do semáforo de cardiotoxicidade.
+- **Arquivo de Metadados de Auditoria:** [`models/herg_model_metadata.json`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model_metadata.json) foi gerado contendo o registro de classes, hiperparâmetros, lista ordenada das 1.030 features, métricas completas de validação cruzada/teste holdout 80/20 e a definição formal das classes operacionais do modelo.
 
 ---
 
 ### 3.6 Etapa 5 — Integração Multiobjetivo, Explicabilidade Local (SHAP) e Interface Interativa Streamlit
 
-Na Fase 5, foi implementada a camada de integração de ponta a ponta da plataforma, articulando os dois modelos preditivos, a explicabilidade de inteligência artificial (*Explainable AI* - XAI) e a interface gráfica amigável para pesquisadores de química medicinal e farmacologia.
+Na Fase 5, foi implementada a camada de integração de ponta a ponta da plataforma, articulando os dois modelos preditivos, a explicabilidade de inteligência artificial (*Explainable AI* - XAI) e a interface gráfica para triagem virtual.
 
 #### 3.6.1 Caderno Integrador de Avaliação Multiobjetivo (`notebooks/07_multitarget_shap_evaluation.ipynb`)
 - **Pipeline Unificado de Predição:**
-  Construiu-se uma rotina de inferência pareada que carrega os modelos [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib) e [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib), computa simultaneamente os 6 descritores físico-químicos e os 1024 bits ECFP4 (`uint8`) para qualquer molécula fornecida via SMILES e projeta os resultados no espaço bidimensional de eficácia vs. segurança.
-- **Mapeamento no Espaço de Decisão Cartesiano (4 Quadrantes):**
+  Construiu-se uma rotina de inferência pareada que carrega os modelos [`models/a2a_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/a2a_model.joblib) e [`models/herg_model.joblib`](file:///c:/Users/Raphael/Documents/BioPredicta/models/herg_model.joblib), padroniza a estrutura molecular via `canonicalize_smiles()`, computa simultaneamente os 6 descritores físico-químicos e os 1024 bits ECFP4 (`uint8`) e projeta os resultados no espaço bidimensional multiobjetivo.
+- **Mapeamento no Espaço de Decisão Cartesiano (Classes Operacionais):**
   Definiu-se a projeção cartesiana onde:
-  - **Eixo $X$:** Potência $pIC_{50}$ no receptor $A_{2A}$ (limiares verticais em $5{,}0$ e $6{,}5$).
-  - **Eixo $Y$:** Margem de Segurança Cardiológica $1 - P_{\text{hERG}}$ (limiares horizontais em $0{,}30$ e $0{,}70$, correspondentes a $P_{\text{hERG}} = 70\%$ e $30\%$).
-  O quadrante superior direito ($pIC_{50} \ge 6{,}5$ e $1 - P_{\text{hERG}} > 0{,}70$) representa a **Zona Ideal de Descoberta** (alta potência e alta segurança).
-- **Homologação com Controles Farmacológicos de Referência:**
-  A tabela a seguir apresenta os resultados empíricos obtidos na execução do caderno:
+  - **Eixo $X$:** Potência predita $pIC_{50}$ no receptor $A_{2A}$ (limiares operacionais verticais em $5{,}0$ e $6{,}5$).
+  - **Eixo $Y$:** Índice complementar derivado do escore predito $1 - P_{\text{hERG}}$ (limiares operacionais horizontais em $0{,}30$ e $0{,}70$, correspondentes a $P_{\text{hERG}} = 0{,}70$ e $0{,}30$). O valor $1 - P_{\text{hERG}}$ é uma transformação matemática complementar do escore estimado pelo modelo, não constituindo uma margem de segurança farmacológica ou clínica validada.
+  A região operacional superior direita ($pIC_{50} \ge 6{,}5$ e $P_{\text{hERG}} < 0{,}30$, isto é, $1 - P_{\text{hERG}} > 0{,}70$) representa a **Zona Ideal Operacional** no espaço preditivo.
+- **Avaliação dos Controles Farmacológicos de Referência (Separação entre Predição, Medição no Dataset e Referência Externa):**
+  A tabela a seguir discrimina rigorosamente a identidade química verificada, o status amostral nos dados de treinamento, a medição experimental presente no dataset local, as predições reais emitidas pelos modelos serializados e a referência bibliográfica externa:
 
-| Composto | SMILES de Entrada | $pIC_{50}$ Predito | Semáforo $A_{2A}$ | $P_{\text{hERG}}$ (%) | Semáforo hERG | Quadrante Decisório |
-|---|---|:---:|:---:|:---:|:---:|:---:|
-| **Istradefilina** | `Cc1nc2c(n1)n(c(=O)n(c2=O)C)C` | **8,33** | 🟢 Alta Potência | **8,0%** | 🟢 Baixo Risco | **Quadrante 1 (Ideal: Potente & Seguro)** |
-| **Cafeína** | `CN1C=NC2=C1C(=O)N(C(=O)N2C)C` | **5,37** | 🟡 Potência Moderada | **13,3%** | 🟢 Baixo Risco | **Quadrante 2 (Moderado & Seguro)** |
-| **Terfenadina** | `CC(C)(C)c1ccc(cc1)C(O)CCCN2CCC(CC2)C(c3ccccc3)c4ccccc4` | **5,26** | 🟡 Potência Moderada | **80,5%** | 🔴 Alto Risco (Cardiotóxico) | **Quadrante 4 (Alerta Toxicológico)** |
-| **Taurina** | `NCCS(=O)(=O)O` | **4,88** | 🔴 Baixa Potência | **10,0%** | 🟢 Baixo Risco | **Quadrante 2 (Inativo & Seguro)** |
-| **L-Teanina** | `CCNC(=O)CCC(N)C(=O)O` | **4,92** | 🔴 Baixa Potência | **11,3%** | 🟢 Baixo Risco | **Quadrante 2 (Inativo & Seguro)** |
+| Composto (ID Verificado) | SMILES Canônico Padronizado | Status Amostral ($A_{2A}$ / hERG) | Medição Experimental no Dataset Local ($A_{2A}$) | Predição do Modelo $A_{2A}$ ($pIC_{50}$ predito e Classe Operacional) | Escore Estimado $P_{\text{hERG}}$ ($1 - P_{\text{hERG}}$) e Classe Operacional | Referência Bibliográfica Externa e Interpretação do Endpoint |
+|---|---|:---:|---|:---:|:---:|---|
+| **Istradefilina** (`CHEMBL431770`) | `CCn1c(=O)c2c(nc(/C=C/c3ccc(OC)c(OC)c3)n2C)n(CC)c1=O` | **In-Sample $A_{2A}$** / Out-of-Sample hERG | **$pIC_{50} = 5{,}28$** (`CHEMBL2384072`, ensaio funcional celular `F` de inibição de cAMP induzido por NECA em CHO: $5.250\text{ nM}$) | **5,51** ($3{,}12\ \mu\text{M}$) · 🟡 Moderada | **45,9%** ($54{,}1\%$) · 🟡 Intermediário/Moderado | Na literatura/bula (KW-6002), exibe alta afinidade em ensaios de ligação radioligante ($pK_i \approx 7{,}5\text{–}8{,}1$). Contudo, o dataset local de treino contém apenas o $IC_{50}$ funcional celular ($pIC_{50} = 5{,}28$), o que explica a predição micromolar ($5{,}51$, *in-sample*). |
+| **Cafeína** (`CHEMBL113`) | `Cn1c(=O)c2c(ncn2C)n(C)c1=O` | **In-Sample $A_{2A}$** / Out-of-Sample hERG | **$pIC_{50} = 4{,}85$** (mediana de 2 ensaios de ligação radioligante `B`: $9.600\text{ nM}$ e $20.472\text{ nM}$) | **4,95** ($11{,}31\ \mu\text{M}$) · 🔴 Baixa/Inativo | **10,5%** ($89{,}5\%$) · 🟢 Baixo Risco Operacional | Antagonista purinérgico clássico de baixa potência micromolar ($IC_{50} \approx 10\text{–}24\ \mu\text{M}$ na literatura); a predição *in-sample* ($4{,}95$) reproduz a medição experimental do dataset ($4{,}85$). |
+| **Terfenadina** (`CHEMBL22`) | `CC(C)(C)c1ccc(C(O)CCCN2CCC(C(O)(c3ccccc3)c3ccccc3)CC2)cc1` | Out-of-Sample $A_{2A}$ / Out-of-Sample hERG | Ausente no dataset local $A_{2A}$ | **5,24** ($5{,}74\ \mu\text{M}$) · 🟡 Moderada | **80,5%** ($19{,}5\%$) · 🔴 Alto Risco Operacional | Bloqueador potente de referência do canal hERG na literatura ($IC_{50} \approx 56\text{ nM}$ em patch-clamp, retirado do mercado por TdP); corretamente identificado na classe operacional de alto risco hERG ($80{,}5\%$, *out-of-sample*). |
+| **Taurina** (`Endógeno`) | `NCCS(=O)(=O)O` | Out-of-Sample $A_{2A}$ / Out-of-Sample hERG | Ausente no dataset local $A_{2A}$ (`MolWt` $= 125{,}15\text{ Da} < 180{,}17\text{ Da}$ mínimo do treino) | **5,45** ($3{,}51\ \mu\text{M}$) · 🟡 Moderada | **7,6%** ($92{,}4\%$) · 🟢 Baixo Risco Operacional | Ácido aminossulfônico endógeno inativo em $A_{2A}$ na literatura; a predição moderada em $A_{2A}$ ($5{,}45$) decorre de extrapolação basal da árvore fora da faixa de massa molecular do treino (apenas 2 bits ECFP4 ativos). |
+| **L-Teanina** (`Nutracêutico`) | `CCNC(=O)CCC(N)C(=O)O` | Out-of-Sample $A_{2A}$ / Out-of-Sample hERG | Ausente no dataset local $A_{2A}$ (`MolWt` $= 174{,}20\text{ Da} < 180{,}17\text{ Da}$ mínimo do treino) | **5,80** ($1{,}60\ \mu\text{M}$) · 🟡 Moderada | **11,4%** ($88{,}6\%$) · 🟢 Baixo Risco Operacional | Aminoácido nutracêutico sem atividade direta reportada em $A_{2A}$ ou hERG; assim como a Taurina, situa-se abaixo do limite mínimo de `MolWt` do conjunto de treinamento $A_{2A}$. |
 
 ---
 
@@ -578,7 +580,7 @@ flowchart TD
         G1 & G2 --> H4["Inferência Paralela Local (< 3s)"]
         H3 --> H4
         H4 --> I1["Semáforo de Eficácia A2A\n(Verde >= 6.5 | Amarelo 5.0-6.5 | Vermelho < 5.0)"]
-        H4 --> I2["Semáforo de Toxicidade hERG\n(Verde < 30% | Amarelo 30-70% | Vermelho > 70%)"]
+        H4 --> I2["Semáforo de Toxicidade hERG\n(Verde < 30% | Amarelo 30% <= P < 70% | Vermelho >= 70%)"]
         H4 --> I3["Explicabilidade SHAP Local\n(Top 10 Features TreeExplainer)"]
     end
 ```
@@ -615,47 +617,50 @@ Calculado exclusivamente a partir do valor predito de $pIC_{50}$:
 - 🟡 **Potência Moderada:** $5{,}0 \le pIC_{50} < 6{,}5$ ($316 \text{ nM} < IC_{50} \le 10 \ \mu\text{M}$). Potência intermediária; candidato viável para campanhas de otimização de fragmentos (*hit-to-lead*).
 - 🔴 **Baixa/Nenhuma Potência:** $pIC_{50} < 5{,}0$ ($IC_{50} > 10 \ \mu\text{M}$). Inativo ou de baixa afinidade.
 
-### 6.2 Indicador de Segurança Cardiológica (hERG)
-Calculado exclusivamente a partir da probabilidade calibrada $P_{\text{hERG}}$:
-- 🟢 **Risco Baixo (Seguro):** $P_{\text{hERG}} < 30\%$. Baixa probabilidade de interação com a cavidade central do canal de potássio.
-- 🟡 **Risco Moderado (Atenção):** $30\% \le P_{\text{hERG}} \le 70\%$. Zona cinzenta farmacológica; composto requer testes *in vitro* de patch-clamp antes do avanço.
-- 🔴 **Risco Alto (Cardiotóxico):** $P_{\text{hERG}} > 70\%$. Elevada probabilidade de bloqueio do canal hERG e risco iminente de indução de prolongamento QT / arritmia fatal.
+### 6.2 Indicador de Triagem do Canal hERG (Classes Operacionais do Modelo)
+Calculado exclusivamente a partir do escore de probabilidade estimado pelo modelo $P_{\text{hERG}}$ (`predict_proba()` de classificador Random Forest sem calibração pós-hoc formal; não equivale diretamente à probabilidade clínica de cardiotoxicidade):
+- 🟢 **Baixo Risco Operacional:** $P_{\text{hERG}} < 30\%$ ($0{,}30$). Escore estimado pelo modelo na faixa operacional inferior.
+- 🟡 **Risco Intermediário/Moderado Operacional:** $30\% \le P_{\text{hERG}} < 70\%$ ($0{,}30 \le P_{\text{hERG}} < 0{,}70$). Faixa operacional intermediária do modelo; requer verificação experimental *in vitro* (ex.: *patch-clamp*).
+- 🔴 **Alto Risco Operacional:** $P_{\text{hERG}} \ge 70\%$ ($0{,}70$). Escore estimado pelo modelo na faixa operacional superior de propensão a bloqueio do canal hERG.
 
 ---
 
 ## 7. Critérios de Avaliação Rápida e Controles Farmacológicos de Referência (Smoke Tests)
 
-Para a homologação prática do comportamento biológico dos modelos treinados, o sistema possui uma bateria de **compostos de controle farmacológico pré-selecionados**:
+Para a inspeção prática do comportamento dos modelos treinados, o sistema disponibiliza cinco **compostos de controle farmacológico pré-selecionados**, distinguindo o perfil bibliográfico externo, a medição experimental presente no dataset local (e o status *In-Sample* vs. *Out-of-Sample*) e as predições reais dos modelos:
 
 ```mermaid
 quadrantChart
-    title Matriz de Homologação Farmacológica (Smoke Tests)
-    x-axis "Baixa Afinidade A2A" --> "Alta Afinidade A2A (Eficaz)"
-    y-axis "Cardiotóxico (Alto Risco hERG)" --> "Seguro (Baixo Risco hERG)"
-    quadrant-1 "Ideal Terapêutico (Potente & Seguro)"
-    quadrant-2 "Inativo & Seguro"
-    quadrant-3 "Inativo & Tóxico"
-    quadrant-4 "Potente porém Cardiotóxico (Descartar)"
-    "Istradefilina": [0.85, 0.88]
-    "Cafeína": [0.55, 0.92]
-    "Taurina": [0.10, 0.95]
-    "L-Teanina": [0.12, 0.94]
-    "Terfenadina": [0.20, 0.10]
+    title Posicionamento Operacional Preditivo dos Controles (pIC50 vs 1 - P_hERG)
+    x-axis "Baixa Potência Predita A2A" --> "Alta Potência Predita A2A"
+    y-axis "Alto Escore hERG (1 - P Baixo)" --> "Baixo Escore hERG (1 - P Alto)"
+    quadrant-1 "Zona Ideal Operacional"
+    quadrant-2 "Baixa Potência / Baixo Escore hERG"
+    quadrant-3 "Baixa Potência / Alto Escore hERG"
+    quadrant-4 "Alta Potência / Alto Escore hERG"
+    "Istradefilina (CHEMBL431770)": [0.50, 0.54]
+    "Cafeína (CHEMBL113)": [0.36, 0.90]
+    "Taurina": [0.49, 0.92]
+    "L-Teanina": [0.58, 0.89]
+    "Terfenadina (CHEMBL22)": [0.44, 0.20]
 ```
 
-### Detalhamento dos Controles:
-1. **Istradefilina (`CHEMBL223405`):**
-   - *Perfil Farmacológico:* Antagonista seletivo potente de $A_{2A}$ aprovado pela FDA e PMDA para Doença de Parkinson. Seguro para o canal hERG nas concentrações terapêuticas.
-   - *Comportamento Esperado na Aplicação:* $A_{2A}$ 🟢 (Alta Potência) e hERG 🟢 (Baixo Risco).
+### Detalhamento dos Controles (Proveniência, Medição e Predição):
+1. **Istradefilina (`CHEMBL431770`):**
+   - *Identidade e Status Amostral:* SMILES canônico `CCn1c(=O)c2c(nc(/C=C/c3ccc(OC)c(OC)c3)n2C)n(CC)c1=O`. **Amostra de Treinamento (In-Sample)** em $A_{2A}$ (`data/processed/a2a_curated.csv`) e *Out-of-Sample* em hERG.
+   - *Medição no Dataset vs. Referência Externa:* Na literatura/bula (KW-6002), apresenta afinidade nanomolar em ensaios de ligação radioligante ($pK_i \approx 7{,}5\text{–}8{,}1$). Entretanto, o único ensaio quantitativo `IC50` presente no ChEMBL e integrado ao dataset curado local provém de um **ensaio funcional celular de inibição de cAMP induzido por NECA em células CHO** (`CHEMBL2384072`, `assay_type = 'F'`), com mediana experimental **$pIC_{50} = 5{,}28$** ($IC_{50} = 5.250\text{ nM}$).
+   - *Predição do Modelo:* $pIC_{50}\text{ predito} = 5{,}51$ (🟡 Potência Moderada Operacional, consistente com o valor *in-sample* $5{,}28$ do ensaio funcional) e escore estimado $P_{\text{hERG}} = 45{,}9\%$ / índice complementar $1 - P_{\text{hERG}} = 54{,}1\%$ (🟡 Classe Operacional Intermediária/Moderada).
 2. **Terfenadina (`CHEMBL22`):**
-   - *Perfil Farmacológico:* Anti-histamínico de 2ª geração retirado do mercado mundial na década de 1990 devido a episódios fatais de TdP causados por bloqueio potente de hERG ($IC_{50} \approx 56 \text{ nM}$). Inativo para $A_{2A}$.
-   - *Comportamento Esperado na Aplicação:* $A_{2A}$ 🔴 (Baixa Potência) e hERG 🔴 (Alto Risco).
+   - *Identidade e Status Amostral:* SMILES canônico `CC(C)(C)c1ccc(C(O)CCCN2CCC(C(O)(c3ccccc3)c3ccccc3)CC2)cc1`. *Out-of-Sample* em $A_{2A}$ ($S_{\max} = 0{,}2273$). Em hERG, o SMILES de entrada diverge na estereoquímica, porém possui **Correspondência Exata de Features (Nível 2 de Proveniência, $\Delta X = 0$)** com a linha `idx=682` (`Drug_ID=5703`, $(R)$-terfenadina, $hERG=1$) do treinamento, atingindo $S_{\max\text{ all}} = 1{,}0000$ e $S_{\max\text{ excl}} = 0{,}9111$.
+   - *Referência Externa:* Anti-histamínico de 2ª geração retirado do mercado devido a bloqueio potente do canal hERG ($IC_{50} \approx 56 \text{ nM}$ em *patch-clamp*) e indução de *Torsades de Pointes*; sem atividade alvo reportada em $A_{2A}$.
+   - *Predição do Modelo:* $pIC_{50}\text{ predito} = 5{,}24$ (🟡 Faixa Moderada Operacional) e escore estimado $P_{\text{hERG}} = 80{,}5\%$ / índice complementar $1 - P_{\text{hERG}} = 19{,}5\%$ (🔴 Classe Operacional de Alto Risco).
 3. **Cafeína (`CHEMBL113`):**
-   - *Perfil Farmacológico:* Antagonista não-seletivo clássico de receptores de adenosina ($A_1 / A_{2A}$) com potência micromolar moderada ($pIC_{50} \approx 5{,}0 - 5{,}5$). Excelente perfil de segurança cardiológica quanto ao bloqueio hERG.
-   - *Comportamento Esperado na Aplicação:* $A_{2A}$ 🟡 (Potência Moderada) e hERG 🟢 (Baixo Risco).
-4. **Taurina e L-Teanina:**
-   - *Perfil Farmacológico:* Compostos endógenos/nutracêuticos amplamente seguros, desprovidos de atividade de ligação relevante no receptor $A_{2A}$ e incapazes de ocluir o canal hERG.
-   - *Comportamento Esperado na Aplicação:* $A_{2A}$ 🔴 (Baixa Potência) e hERG 🟢 (Baixo Risco).
+   - *Identidade e Status Amostral:* SMILES canônico `Cn1c(=O)c2c(ncn2C)n(C)c1=O`. **Amostra de Treinamento (In-Sample)** em $A_{2A}$ e *Out-of-Sample* em hERG.
+   - *Medição no Dataset vs. Referência Externa:* Mediana experimental no dataset local **$pIC_{50} = 4{,}85$** (2 ensaios de ligação radioligante `assay_type = 'B'`: $9.600\text{ nM}$ e $20.472\text{ nM}$), alinhada à potência micromolar clássica da literatura.
+   - *Predição do Modelo:* $pIC_{50}\text{ predito} = 4{,}95$ (🔴 Baixa Potência Operacional, próxima ao limiar $5{,}0$ e ao valor experimental *in-sample* $4{,}85$) e escore estimado $P_{\text{hERG}} = 10{,}5\%$ / índice complementar $1 - P_{\text{hERG}} = 89{,}5\%$ (🟢 Classe Operacional de Baixo Risco).
+4. **Taurina (`Endógeno`) e L-Teanina (`Nutracêutico`):**
+   - *Identidade e Status Amostral:* Taurina (`NCCS(=O)(=O)O`, `MolWt` $= 125{,}15\text{ Da}$) e L-Teanina (`CCNC(=O)CCC(N)C(=O)O`, `MolWt` $= 174{,}20\text{ Da}$). Ambos **Fora da Amostra de Treino (Out-of-Sample)** em $A_{2A}$ e hERG, e situados abaixo da massa molecular mínima do conjunto de treinamento $A_{2A}$ ($180{,}17\text{ Da}$).
+   - *Referência Externa vs. Predição do Modelo:* Compostos polares de baixo peso molecular sem atividade ortostérica reportada em $A_{2A}$ ou bloqueio de hERG na literatura. No modelo hERG, recebem escores baixos ($P_{\text{hERG}} = 7{,}6\%$ e $11{,}4\%$, 🟢 Classe Operacional de Baixo Risco); no modelo $A_{2A}$, recebem predições basais na faixa moderada ($pIC_{50}\text{ predito} = 5{,}45$ e $5{,}80$) devido à extrapolação da árvore para estruturas com pouquíssimos bits ECFP4 ativos fora da faixa de `MolWt` de treino.
 
 ---
 
@@ -676,6 +681,11 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 | **DEC-09** | XAI | SHAP *TreeExplainer* restrito ao Top 10 | Gráficos completos com todas as 1030 features | Geração de sumário gráfico completo de 1030 atributos trava a interface Streamlit em CPUs locais. |
 | **DEC-10** | I/O & Formato | Armazenamento em Apache Parquet (`uint8`) | Serialização em CSV clássico | Redução de 75% no tamanho em disco, I/O sub-segundo e preservação estrita do tipo `uint8` sem conversão. |
 | **DEC-11** | Frontend | Editor 2D Ketcher integrado no Streamlit | Entrada estrita por texto SMILES | Facilita uso por biólogos e químicos medicinais permitindo edição e teste de análogos diretamente no navegador. |
+| **DEC-12** | Featurização | Função unificada em lote `featurize_dataframe` | Pipelines dispersos com featurização linha a linha | Garante que treino e inferência compartilhem 100% da mesma padronização química (regras de sais e uint8). |
+| **DEC-13** | Geometria | Regiões sombreadas em coordenadas de dados (`ax.transData`) | `axvspan` com coordenadas normalizadas mistas | Elimina distorções óticas causadas por margens de eixos (`ylim = (-0.05, 1.05)`), fixando o retângulo ideal exatamente em $x \ge 6{,}5$ e $0{,}70 \le y \le 1{,}00$. |
+| **DEC-14** | Limiares | Convenção canônica estrita ($P < 0{,}30$; $0{,}30 \le P < 0{,}70$; $P \ge 0{,}70$) | Limiares ambíguos com sobreposição no PRD original | Garante que $P = 0{,}70$ pertença de forma unívoca à classe de Alto Risco em todo o código, metadados e documentação. |
+| **DEC-15** | Domínio AD | Hierarquia de 4 níveis com auto-exclusão seletiva | Limiares binários arbitrários (ex.: $S_{\max} \ge 0{,}60$) | Evita falsas garantias clínicas, reporta $S_{\max}$ contínuo e impede auto-exclusão no Nível 3 para proteger contra colisões de hash. |
+| **DEC-16** | Qualidade | Suíte com 26 testes automatizados e benchmark isolado | Ausência de testes ou testes com asserções frágeis de CPU | Permite validação contínua da integridade química e matemática sem falsos negativos decorrentes de oscilações de hardware. |
 
 ---
 
@@ -724,3 +734,43 @@ Com a conclusão da **Fase 5**, o projeto **MultiTarget BioPredict** atinge matu
      streamlit run app.py
      ```
    - O aplicativo carrega os modelos serializados a frio em menos de 1,5 segundo e fornece assistência completa à tomada de decisão químico-medicinal com visualização 2D em tempo real.
+
+---
+
+## 10. Ciclo de Auditoria, Refinamento Técnico e Domínio de Aplicabilidade (Fases 3A a 3D-3A)
+
+Após a entrega do protótipo funcional inicial (Fases 0 a 5 do plano de desenvolvimento original), o projeto passou por um segundo ciclo de trabalho dedicado à auditoria aprofundada de qualidade, estabilização matemática de fronteiras e implementação do Domínio de Aplicabilidade (documentado cronologicamente nas Fases de Refinamento 3A a 3D-3A e na Fase 4 de Revisão Documental):
+
+### 10.1 Fase 3A — Featurização em Lote e Padronização Estrutural
+- **Implementação:** Criação de `featurize_dataframe()` em [`src/chem_utils.py`](src/chem_utils.py) para unificar a padronização e featurização de matrizes tabulares.
+- **Robustez:** Padronização canônica invariante à representação bruta (Kekulé vs. aromático), remoção uniforme de contraíons (sais) e garantia estrita do tipo `numpy.uint8` para os 1.024 bits Morgan ECFP4.
+- **Validação:** Criação de [`tests/test_featurization_regression.py`](tests/test_featurization_regression.py), comprovando paridade byte-a-byte contra os $14.500$ registros dos Parquets sem regravá-los.
+
+### 10.2 Fase 3B — Geometria Cartesiana Absoluta da Matriz Multiobjetivo
+- **Correção Matemática:** Eliminação do uso de coordenadas normalizadas mistas (`axvspan` / `axhspan`), substituindo-as por sombreamento em coordenadas de dados estritas (`ax.transData` via `fill_between`).
+- **Garantia Geométrica:** A região ideal ocupa exatamente o espaço $x \ge 6{,}5$ e $0{,}70 \le y \le 1{,}00$ (correspondendo estritamente a $P_{\text{hERG}} < 0{,}30$), independente de margens dos eixos (`ylim = (-0.05, 1.05)`).
+- **Validação:** Criação de [`tests/test_multiobjective_plot.py`](tests/test_multiobjective_plot.py).
+
+### 10.3 Fases 3C e 3C-1 — Correção Canônica das Fronteiras Operacionais hERG
+- **Unificação de Limiares:** Eliminação da sobreposição histórica do PRD original ($30\% \le P \le 70\%$ vs. $P > 70\%$).
+- **Convenção Canônica:**
+  - Baixo Risco: $P < 0{,}30$ ($y > 0{,}70$)
+  - Intermediário: $0{,}30 \le P < 0{,}70$ ($0{,}30 < y \le 0{,}70$)
+  - Alto Risco: $P \ge 0{,}70$ ($y \le 0{,}30$)
+- **Conceituação Científica:** Explicitação documental de que $P_{\text{hERG}}$ é um escore probabilístico estimado pelo modelo, e não uma probabilidade clínica validada de arritmia.
+- **Validação:** Testes de fronteira em [`tests/test_controls_and_interpretation.py`](tests/test_controls_and_interpretation.py) para $0{,}299$, $0{,}300$, $0{,}699$, $0{,}700$ e $0{,}701$.
+
+### 10.4 Fase 3D-0 — Auditoria da Origem do Modelo hERG (13.136 vs. 652 Moléculas)
+- **Investigação:** Auditoria profunda do histórico Git, código-fonte e árvores internas dos arquivos `.joblib`.
+- **Esclarecimento Definitivo:** Comprovação documental de que `models/herg_model.joblib` foi treinado integralmente sobre os **$13.136$ compostos** de `herg_curated.csv` / `herg_featurized.parquet` (Random Forest com $10.508$ amostras de treino e $2.628$ de teste hold-out). O valor "652" originou-se de um erro material isolado no rascunho da Parte I de `AUDITORIA.md` (e referências biológicas ao resíduo Tyr652 do poro Kv11.1 nos notebooks).
+
+### 10.5 Fases 3D-1 a 3D-3A — Motor de Diagnóstico do Domínio de Aplicabilidade (AD)
+- **Módulo Dedicado:** Criação de [`src/ad_utils.py`](src/ad_utils.py) e integração à Seção 16 de [`app.py`](app.py).
+- **Hierarquia de 4 Níveis de Proveniência Molecular (Quatro Casos Implementados):**
+  1. *Nível 1 (Estrutura):* SMILES canônico idêntico ao treino.
+  2. *Nível 2 (Features 1.030-D):* Vetor completo de 1.030 atributos idêntico ($\Delta X = 0$), apesar de divergência no SMILES (ex.: $(R)$-terfenadina vs. forma racêmica em representação 2D).
+  3. *Nível 3 (Fingerprint):* Fingerprint idêntico (1.024 bits Morgan ECFP4, $S_{\text{Tanimoto}} = 1{,}0000$), mas com descritores físico-químicos divergentes (colisão de bits).
+  4. *Nível 4 (Sem correspondência exata):* Nenhuma correspondência exata conhecida, com apresentação contínua de similaridade máxima $S_{\max}$ e rastreamento do vizinho mais próximo.
+- **Auto-Exclusão Seletiva:** A métrica $S_{\max\text{ excluding match}}$ exclui exclusivamente correspondências dos dois primeiros casos (Níveis 1 e 2), não do terceiro (Nível 3), preservando no Nível 3 o composto idêntico em bits como vizinho de referência devido à divergência comprovada em seus descritores físico-químicos.
+- **Governança de Memória:** O cache em Python consome $\approx 8{,}32\text{ MB}$ (`tracemalloc`), e o processo total no Windows consome $\approx 186\text{ MB}$ de RSS (`psutil`). Não foi observado crescimento persistente de RSS após 100 consultas no protocolo experimental executado. Ressalta-se que este comportamento reflete ensaio mono-thread em bancada local; a estabilidade sob concorrência multiusuário contínua em ambiente de produção permanece condicionada à gestão de sessões do servidor Streamlit.
+- **Validação:** [`tests/test_applicability_domain.py`](tests/test_applicability_domain.py) e [`tests/test_ad_performance.py`](tests/test_ad_performance.py), totalizando 26 testes aprovados no repositório.

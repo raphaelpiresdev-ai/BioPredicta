@@ -1,8 +1,14 @@
 """
-model_utils — Métricas, validação cruzada e rotinas de inferência.
+model_utils — Métricas estatísticas, validação cruzada e rotinas de avaliação de modelos.
 
-Fase 0: fundação mínima e estável. Será expandido nas fases de modelagem
-(A2A = regressão de pChEMBL; hERG = classificação bloqueador / não bloqueador).
+Módulo de avaliação supervisionada do MultiTarget BioPredict:
+- Métricas contínuas de regressão para potência A2A (RMSE, MAE, R²).
+- Métricas de classificação binária para cardiotoxicidade hERG (ROC-AUC, PR-AUC, F1, MCC, Balanced Accuracy).
+- Notação canônica para intervalos operacionais de risco hERG (sem sobreposição):
+  * Baixo Risco: P < 0.30
+  * Risco Intermediário: 0.30 <= P < 0.70
+  * Alto Risco: P >= 0.70
+- Protocolos de validação cruzada 5-fold (K-Fold e Stratified K-Fold) com paralelismo local seguro (n_jobs=2).
 """
 
 from __future__ import annotations

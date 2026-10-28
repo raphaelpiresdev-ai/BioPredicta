@@ -123,7 +123,8 @@ def canonicalize_smiles(smiles: str) -> Optional[str]:
 def _ensure_mol(mol: MolLike) -> Chem.Mol:
     """Aceita ``Chem.Mol`` ou SMILES; levanta ``ValueError`` se inválido."""
     if isinstance(mol, str):
-        mol = smiles_to_mol(mol, standardize=True)
+        canon = canonicalize_smiles(mol)
+        mol = Chem.MolFromSmiles(canon) if canon is not None else None
     if mol is None or not isinstance(mol, Chem.Mol):
         raise ValueError("Molécula inválida: forneça um Chem.Mol ou SMILES válido.")
     return mol
@@ -192,31 +193,58 @@ def featurize_dataframe(
 ) -> pd.DataFrame:
     """Calcula os 6 descritores 2D e Morgan Fingerprints (1024 bits uint8) em lote para um DataFrame.
 
-    Para cada linha do DataFrame, converte o SMILES padronizado em molécula RDKit,
+    Para cada linha do DataFrame, aplica o mesmo procedimento de padronização química
+    do treinamento via :func:`canonicalize_smiles` (limpeza, remoção de sais/contraíons,
+    neutralização e geração de SMILES canônico isomérico), converte em molécula RDKit,
     calcula os descritores físico-químicos e os Morgan Fingerprints (ECFP4),
     anexando as 1030 colunas de atributos ao DataFrame original.
 
+    Entradas com SMILES inválidos, vazios ou nulos não interrompem o lote: a linha
+    correspondente preserva seu índice original com ``NaN`` nos 6 descritores 2D e
+    zeros (``0``, ``uint8``) nos ``n_bits`` de Morgan Fingerprint.
+
     Args:
         df: DataFrame de entrada contendo a coluna de SMILES.
-        smiles_col: Nome da coluna contendo os SMILES canônicos.
+        smiles_col: Nome da coluna contendo os SMILES (brutos ou canônicos).
         radius: Raio do ambiente circular de Morgan (2 para ECFP4).
         n_bits: Quantidade de bits do vetor de Morgan (padrão 1024).
 
     Returns:
-        DataFrame com colunas originais + 6 descritores 2D + 1024 bits fp_0..fp_1023 (uint8).
+        DataFrame com colunas originais + 6 descritores 2D + 1024 bits fp_0..fp_1023 (uint8),
+        preservando exatamente o índice e o número de linhas de ``df``.
     """
     if smiles_col not in df.columns:
         raise ValueError(f"Coluna {smiles_col!r} não encontrada no DataFrame.")
 
-    mols = [Chem.MolFromSmiles(str(s)) for s in df[smiles_col]]
-    
-    # 1. Descritores 2D
-    desc_list = [compute_2d_descriptors(m) for m in mols]
-    df_desc = pd.DataFrame(desc_list, index=df.index)
+    if len(df) == 0:
+        df_desc = pd.DataFrame(columns=list(DESCRIPTOR_NAMES), index=df.index, dtype=float)
+        df_fps = pd.DataFrame(columns=list(FINGERPRINT_NAMES[:n_bits]), index=df.index, dtype=np.uint8)
+        return pd.concat([df, df_desc, df_fps], axis=1)
 
-    # 2. Morgan Fingerprints (uint8)
+    canon_smiles = [
+        canonicalize_smiles(s) if isinstance(s, str) else None
+        for s in df[smiles_col]
+    ]
+    mols = [
+        Chem.MolFromSmiles(cs) if cs is not None else None
+        for cs in canon_smiles
+    ]
+
+    # 1. Descritores 2D (NaN para linhas com SMILES inválido)
+    nan_desc = {name: np.nan for name in DESCRIPTOR_NAMES}
+    desc_list = [
+        compute_2d_descriptors(m) if m is not None else nan_desc.copy()
+        for m in mols
+    ]
+    df_desc = pd.DataFrame(desc_list, columns=list(DESCRIPTOR_NAMES), index=df.index)
+
+    # 2. Morgan Fingerprints (uint8; zeros para linhas com SMILES inválido)
     gen = _morgan_generator(radius, n_bits)
-    fp_arrays = [gen.GetFingerprintAsNumPy(m).astype(np.uint8, copy=False) for m in mols]
+    zero_fp = np.zeros(n_bits, dtype=np.uint8)
+    fp_arrays = [
+        gen.GetFingerprintAsNumPy(m).astype(np.uint8, copy=False) if m is not None else zero_fp.copy()
+        for m in mols
+    ]
     fp_mat = np.vstack(fp_arrays)
     df_fps = pd.DataFrame(fp_mat, columns=list(FINGERPRINT_NAMES[:n_bits]), index=df.index)
 

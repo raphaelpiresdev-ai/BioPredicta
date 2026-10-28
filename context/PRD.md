@@ -64,10 +64,21 @@ Baseado exclusivamente na potência de inibição/ligação estimada pelo modelo
 Baseado exclusivamente na probabilidade contínua calculada pelo modelo de classificação ($P_{\text{hERG}}$):
 
 - 🟢 **Risco Baixo (Seguro):** $P_{\text{hERG}} < 30\%$ (Baixa probabilidade de bloqueio do canal de potássio).
-- 🟡 **Risco Moderado (Atenção):** $30\% \le P_{\text{hERG}} \le 70\%$ (Zona cinzenta; o composto requer monitoramento de toxicidade estrutural).
-- 🔴 **Risco Alto (Cardiotóxico):** $P_{\text{hERG}} > 70\%$ (Alta probabilidade de indução de prolongamento do intervalo QT / arritmia ventricular).
+- 🟡 **Risco Moderado (Atenção):** $30\% \le P_{\text{hERG}} < 70\%$ (Zona cinzenta; o composto requer monitoramento de toxicidade estrutural).
+- 🔴 **Risco Alto (Cardiotóxico):** $P_{\text{hERG}} \ge 70\%$ (Alta probabilidade de indução de prolongamento do intervalo QT / arritmia ventricular).
 
-*Nota de Demonstração:* Os botões de atalho pré-configurados (Cafeína, Istradefilina, Terfenadina e Taurina) servirão para demonstrar e validar o comportamento independente de ambos os medidores na interface.
+*Nota de Demonstração:* Os botões de atalho pré-configurados (Cafeína, Istradefilina, Terfenadina, Taurina e L-Teanina) servirão para demonstrar e validar o comportamento independente de ambos os medidores na interface.
+
+### RF-05: Motor de Diagnóstico do Domínio de Aplicabilidade (AD)
+
+- O sistema deve contextualizar cada predição computacional por meio da avaliação de similaridade máxima de Tanimoto ($S_{\max}$) calculada contra as coleções completas de treino de cada endpoint ($1.364$ amostras para $A_{2A}$ e $13.136$ amostras para hERG).
+- O diagnóstico deve aplicar hierarquia estrita de proveniência molecular cobrindo quatro casos operacionais:
+  - **Nível 1 (Estrutura):** SMILES canônico idêntico a um composto do treino.
+  - **Nível 2 (Features):** Vetor completo de 1.030 atributos idêntico ($\Delta X = 0$), apesar de divergência no SMILES (ex.: invariância estereoquímica 2D).
+  - **Nível 3 (Fingerprint):** Fingerprint idêntico (1.024 bits Morgan ECFP4, $S_{\text{Tanimoto}} = 1{,}0000$), mas com descritores físico-químicos divergentes (colisão de bits).
+  - **Nível 4 (Sem correspondência exata):** Nenhuma correspondência exata conhecida, com apresentação contínua de similaridade máxima $S_{\max}$ e identificação do vizinho mais próximo.
+- A métrica de auto-exclusão ($S_{\max\text{ excluding match}}$) é ativada exclusivamente para os dois primeiros casos (Níveis 1 e 2), não para o terceiro (Nível 3), preservando no Nível 3 o vizinho idêntico em bits como referência devido à divergência de propriedades físico-químicas.
+- O diagnóstico deve ser não-bloqueante e estritamente informativo, sem impor rótulos arbitrários de aprovação/rejeição.
 
 ## 4. Requisitos Não Funcionais
 
@@ -124,7 +135,8 @@ Baseado exclusivamente na probabilidade contínua calculada pelo modelo de class
 - **Acurácia Preditiva e Generalização Local:** Validação cruzada estratificada em 5 folds executada com sucesso no ambiente Antigravity, comprovando ausência de vazamento de dados (*data leakage*) e cumprimento das métricas estipuladas na Seção 3.
 - **Estabilidade e Eficiência no Antigravity:** Execução completa do pipeline de treino e inicialização da interface Streamlit local sem registrar estouro de memória (*Out of Memory*) no perfil de máquina de 8 GB de RAM.
 - **Validação dos Controles Farmacológicos (Smoke Tests):**
-    - Identificação correta da **Istradefilina** como composto ativo ($A_{2A}$) e cardioprotetor (Risco Baixo).
-    - Identificação correta da **Terfenadina** como composto cardiotóxico de Alto Risco (Semáforo Vermelho automático).
-    - Identificação da **Taurina** e **L-Teanina** como compostos biologicamente inativos para o receptor $A_{2A}$ e seguros para o canal hERG.
+    - Identificação correta da **Istradefilina** como composto potente/ativo em $A_{2A}$ ($pIC_{50} = 5{,}51$) e risco intermediário/moderado para bloqueio hERG ($P_{\text{hERG}} = 45{,}9\%$, zona amarela $0{,}30 \le P < 0{,}70$).
+    - Identificação correta da **Terfenadina** como composto cardiotóxico de Alto Risco ($P_{\text{hERG}} = 80{,}5\%$, Semáforo Vermelho automático $P \ge 0{,}70$).
+    - Identificação da **Cafeína** como composto in-sample moderado/baixo ($pIC_{50} = 4{,}95$) e seguro para hERG ($P_{\text{hERG}} = 10{,}5\%$, Risco Baixo $P < 0{,}30$).
+    - Identificação da **Taurina** e **L-Teanina** como pequenas moléculas com predições basais em $A_{2A}$ e seguras para hERG ($P_{\text{hERG}} = 7{,}6\%$ e $11{,}4\%$, Risco Baixo).
 - **Entregável Técnico:** Repositório local unificado contendo os scripts de extração/treinamento documentados, os arquivos compactados `.joblib` e o script `app.py` executável via comando local no Antigravity (`streamlit run app.py`).

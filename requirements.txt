@@ -30,6 +30,10 @@ requests>=2.31,<3          # download direto dos datasets TDC (Harvard Dataverse
 ipykernel>=6.29
 matplotlib==3.11.2
 
+# --- Testes Automatizados & Benchmarking (QA) --------------------------------
+pytest>=9.0.0
+psutil>=5.9.0
+
 # -----------------------------------------------------------------------------
 # NOTA: PyTDC NÃO está aqui de propósito. A versão 1.x exige tiledbsoma
 # (sem wheels para Windows), torch/transformers e fixa numpy<2 / pandas<3 /
