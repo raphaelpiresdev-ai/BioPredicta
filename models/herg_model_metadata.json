@@ -1074,8 +1074,8 @@
   },
   "decision_thresholds": {
     "green_low_risk": "P(hERG) < 0.30",
-    "yellow_moderate_risk": "0.30 <= P(hERG) <= 0.70",
-    "red_high_risk": "P(hERG) > 0.70"
+    "yellow_moderate_risk": "0.30 <= P(hERG) < 0.70",
+    "red_high_risk": "P(hERG) >= 0.70"
   },
   "created_at": "2026-10-11T17:44:02.137876"
 }
