@@ -567,7 +567,7 @@ def build_ad_card_html(diag: Dict[str, Any]) -> str:
         </div>
         <p style="color:#CBD5E1; font-size:0.82rem; margin:0 0 12px 0; line-height:1.4;">{prov_desc}</p>
         
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:10px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:10px;">
             <div style="background:#252A37; border-radius:8px; padding:12px;">
                 <div style="font-size:0.75rem; text-transform:uppercase; color:#94A3B8; font-weight:600; letter-spacing:0.5px;">Similaridade Máxima Geral (S_max)</div>
                 <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:#FFFFFF; margin-top:4px;">
@@ -601,7 +601,7 @@ def build_ad_section_html(diag_a2a: Dict[str, Any], diag_herg: Dict[str, Any]) -
 
     return f"""
     <div class="ad-section-container" style="margin-top:20px; margin-bottom:24px;">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
             <div>{card_a2a}</div>
             <div>{card_herg}</div>
         </div>

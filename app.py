@@ -35,6 +35,10 @@ from src.ad_utils import (
     compute_ad_diagnostics,
     get_ad_reference,
 )
+from src.pubchem_utils import (
+    build_pubchem_card_html,
+    identify_compound_pubchem,
+)
 
 # -----------------------------------------------------------------------------
 # 1. Configuração da Página
@@ -152,7 +156,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .kpi-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 0.75rem;
     margin: 0.9rem 0;
 }
@@ -1479,7 +1483,7 @@ def build_control_provenance_html(
         </div>
     </div>
     <p class="pharm-desc-text" style="font-size:0.86rem; margin-bottom:0.75rem;">{provenance["desc"]}</p>
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">
         <div class="kpi-box">
             <div class="kpi-label">1. Predição do Modelo (A2A)</div>
             <div style="font-size:1.05rem; font-weight:700; color:#00D2BE;">pIC50 predito = {pred_pIC50:.2f}</div>
@@ -1624,29 +1628,45 @@ if input_mode == "🧪 Controles de Referência (1-Clique)":
     active_desc = ctrl_data["desc"]
 
 elif input_mode == "✏️ Inserir SMILES (Texto)":
+    # Mapeamento canônico dos atalhos rápidos para SMILES correspondentes
+    PRESET_SMILES_MAP = {
+        "Cafeína": REFERENCE_CONTROLS["☕ Cafeína (CHEMBL113)"]["smiles"],
+        "Istradefilina": REFERENCE_CONTROLS["💊 Istradefilina (CHEMBL431770)"]["smiles"],
+        "Terfenadina": REFERENCE_CONTROLS["⚠️ Terfenadina (CHEMBL22)"]["smiles"],
+        "Taurina": REFERENCE_CONTROLS["🌿 Taurina (Endógeno)"]["smiles"],
+        "L-Teanina": REFERENCE_CONTROLS["🍵 L-Teanina (Nutracêutico)"]["smiles"],
+    }
+
+    if "mode2_smiles_input" not in st.session_state:
+        st.session_state["mode2_smiles_input"] = ""
+
+    def _on_mode2_preset_change():
+        chosen = st.session_state.get("mode2_preset_selector")
+        if chosen in PRESET_SMILES_MAP:
+            st.session_state["mode2_smiles_input"] = PRESET_SMILES_MAP[chosen]
+
+    def _on_mode2_text_change():
+        typed = st.session_state.get("mode2_smiles_input", "").strip()
+        current_preset = st.session_state.get("mode2_preset_selector")
+        if current_preset in PRESET_SMILES_MAP:
+            if typed != PRESET_SMILES_MAP[current_preset]:
+                st.session_state["mode2_preset_selector"] = "(Personalizado)"
+
     col_input, col_preset = st.columns([3, 1])
     with col_preset:
         preset_choice = st.selectbox(
             "Atalhos rápidos:",
             ["(Personalizado)", "Cafeína", "Istradefilina", "Terfenadina", "Taurina", "L-Teanina"],
             index=0,
+            key="mode2_preset_selector",
+            on_change=_on_mode2_preset_change,
         )
-    default_smi = "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
-    if preset_choice == "Cafeína":
-        default_smi = REFERENCE_CONTROLS["☕ Cafeína (CHEMBL113)"]["smiles"]
-    elif preset_choice == "Istradefilina":
-        default_smi = REFERENCE_CONTROLS["💊 Istradefilina (CHEMBL431770)"]["smiles"]
-    elif preset_choice == "Terfenadina":
-        default_smi = REFERENCE_CONTROLS["⚠️ Terfenadina (CHEMBL22)"]["smiles"]
-    elif preset_choice == "Taurina":
-        default_smi = REFERENCE_CONTROLS["🌿 Taurina (Endógeno)"]["smiles"]
-    elif preset_choice == "L-Teanina":
-        default_smi = REFERENCE_CONTROLS["🍵 L-Teanina (Nutracêutico)"]["smiles"]
 
     with col_input:
         user_smiles = st.text_input(
             "Insira o código SMILES da molécula:",
-            value=default_smi,
+            key="mode2_smiles_input",
+            on_change=_on_mode2_text_change,
             placeholder="Ex: CCN1C(=O)C2=C(N=C(N2C)/C=C/C3=CC(=C(C=C3)OC)OC)N(C1=O)CC",
         )
     active_smiles = user_smiles.strip()
@@ -1656,19 +1676,19 @@ elif input_mode == "🎨 Desenhar Molécula (Ketcher)":
         from streamlit_ketcher import st_ketcher
 
         st.markdown("Desenhe ou edite a estrutura química no editor bidimensional abaixo e clique em **Apply**:")
-        ketcher_smiles = st_ketcher("Cn1c(=O)c2c(ncn2C)n(C)c1=O", height=450)
+        ketcher_smiles = st_ketcher("", height=450)
         active_smiles = ketcher_smiles.strip() if ketcher_smiles else ""
         active_name = "Composto Desenhado (Ketcher)"
     except Exception as e:
         st.warning(f"Editor Ketcher indisponível ({e}). Por favor, utilize a entrada por código SMILES.")
-        active_smiles = st.text_input("SMILES:", value="Cn1c(=O)c2c(ncn2C)n(C)c1=O")
+        active_smiles = st.text_input("SMILES:", value="", placeholder="Insira o código SMILES da molécula...")
 
 
 # -----------------------------------------------------------------------------
 # 10. Padronização, Featurização e Rastreamento de Bits (bitInfo RDKit)
 # -----------------------------------------------------------------------------
 if not active_smiles:
-    st.warning("Por favor, selecione, insira ou desenhe uma molécula para iniciar a triagem.")
+    st.info("💡 Por favor, selecione um controle de referência, insira um código SMILES ou desenhe uma molécula para iniciar a análise.")
     st.stop()
 
 canonical_smi = canonicalize_smiles(active_smiles)
@@ -1681,6 +1701,20 @@ if canonical_smi is None:
     st.stop()
 
 provenance = resolve_compound_provenance(canonical_smi)
+
+# Consulta automatizada de identificação no PubChem (reutilizada para Ketcher e SMILES manual)
+pubchem_info = identify_compound_pubchem(canonical_smi)
+if pubchem_info.get("status") == "SUCCESS" and pubchem_info.get("title"):
+    if not provenance.get("is_reference_control"):
+        pub_title = pubchem_info["title"]
+        cid_num = pubchem_info.get("cid")
+        provenance["name"] = f"{pub_title} (PubChem CID {cid_num})" if cid_num else pub_title
+        if pubchem_info.get("iupac_name"):
+            provenance["desc"] = (
+                f"Identificado automaticamente via PubChem (CID {cid_num}). "
+                f"Nome sistemático IUPAC: {pubchem_info['iupac_name']}."
+            )
+
 active_name = provenance["name"]
 active_desc = provenance["desc"]
 
@@ -1768,6 +1802,11 @@ herg_label = herg_operational["label"]
 herg_desc = herg_operational["desc"]
 
 render_html(build_control_provenance_html(provenance, pred_pIC50, prob_herg))
+
+# Cartão de Identificação Automatizada via PubChem (reutilizado para Ketcher e SMILES manual)
+pubchem_card_html = build_pubchem_card_html(pubchem_info)
+if pubchem_card_html:
+    render_html(pubchem_card_html)
 
 
 # -----------------------------------------------------------------------------
@@ -1916,7 +1955,7 @@ with st.expander("📋 Propriedades Físico-Químicas 2D e Auditoria de Drogabil
                 <span>Parâmetros Físico-Químicos Calculados (RDKit 2D)</span>
                 {lip_badge}
             </div>
-            <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:0.75rem; margin-top:0.5rem;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; margin-top:0.5rem;">
                 <div class="kpi-box">
                     <div class="kpi-label">Massa (MolWt)</div>
                     <div class="kpi-value" style="font-size:1.25rem;">{mol_wt:.1f} <span style="font-size:0.8rem; color:#94A3B8;">Da</span></div>
@@ -2022,7 +2061,7 @@ def build_multiobjective_figure(
     ax_mat.text(
         9.0,
         0.95,
-        "QUADRANTE IDEAL 🏆\nPotente & Baixo Escore hERG",
+        "QUADRANTE IDEAL\nPotente & Baixo Escore hERG",
         ha="center",
         va="top",
         fontsize=9.5,
@@ -2032,7 +2071,7 @@ def build_multiobjective_figure(
     ax_mat.text(
         9.0,
         0.05,
-        "DESCARTE CRÍTICO ⚠️\nPotente porém Alto Escore hERG",
+        "DESCARTE CRÍTICO\nPotente porém Alto Escore hERG",
         ha="center",
         va="bottom",
         fontsize=9.5,
