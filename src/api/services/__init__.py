@@ -1,6 +1,5 @@
-"""Services package for MultiTarget BioPredict API.
+"""Subpacote de serviços da API MultiTarget BioPredict.
 
-Reserved for orchestration services integrating the FastAPI interface with
-the scientific core (chem_utils, model_utils, ad_utils, and pubchem_utils).
+Reservado aos serviços de orquestração que integram a interface FastAPI
+com as funções do núcleo científico (chem_utils, model_utils, etc.).
 """
-
