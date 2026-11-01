@@ -1,7 +1,5 @@
-"""Schemas package for MultiTarget BioPredict API.
+"""Subpacote de esquemas (schemas) da API MultiTarget BioPredict.
 
-Reserved for request and response data contracts (Pydantic models)
-governing molecule ingestion, predictions, applicability domain,
-and system status.
+Reservado aos contratos de dados de entrada e saída (modelos Pydantic)
+para ingestão de moléculas, respostas de predição e status da aplicação.
 """
-

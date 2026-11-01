@@ -1,13 +1,12 @@
-"""MultiTarget BioPredict — API Package.
+"""Pacote da API REST MultiTarget BioPredict.
 
-This package provides the FastAPI REST interface for the MultiTarget BioPredict platform.
-Subpackages:
-- schemas: Request and response data models (Pydantic).
-- services: Application services and integration with scientific core.
-- routers: HTTP route definitions.
+Fornece a interface REST desenvolvida em FastAPI para a plataforma MultiTarget BioPredict.
+Subpacotes:
+- schemas: Modelos e contratos de dados de entrada e saída (Pydantic).
+- services: Serviços de orquestração e integração com o núcleo científico.
+- routers: Definições de rotas e controladores HTTP.
 """
 
 from src.api.main import app
 
 __all__ = ["app"]
-

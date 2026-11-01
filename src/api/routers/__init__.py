@@ -1,6 +1,4 @@
-"""Routers package for MultiTarget BioPredict API.
+"""Subpacote de roteadores (routers) da API MultiTarget BioPredict.
 
-Reserved for FastAPI APIRouter definitions organizing HTTP routes
-by domain (health, predictions, diagnostics).
+Reservado às definições de rotas HTTP do FastAPI organizadas por domínio.
 """
-
