@@ -35,6 +35,10 @@ from src.ad_utils import (
     compute_ad_diagnostics,
     get_ad_reference,
 )
+from src.pubchem_utils import (
+    build_pubchem_card_html,
+    identify_compound_pubchem,
+)
 
 # -----------------------------------------------------------------------------
 # 1. Configuração da Página
@@ -56,409 +60,11 @@ def render_html(html_str: str) -> None:
 # -----------------------------------------------------------------------------
 # 2. Estilização CSS Customizada (Dark Mode: #0E1117 / #1E222D / #00D2BE / #FFFFFF)
 # -----------------------------------------------------------------------------
-st.markdown(
-    """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
-
-:root {
-    --bg-primary: #0E1117;
-    --bg-card: #1E222D;
-    --bg-card-elevated: #252A37;
-    --accent-teal: #00D2BE;
-    --accent-teal-glow: rgba(0, 210, 190, 0.16);
-    --text-main: #FFFFFF;
-    --text-muted: #CBD5E1;
-    --text-subtle: #94A3B8;
-    --danger-red: #FF4B4B;
-    --warning-amber: #F59E0B;
-    --border-subtle: rgba(255, 255, 255, 0.10);
-}
-
-html, body, .stApp {
-    background-color: var(--bg-primary);
-    color: var(--text-main);
-    font-family: 'Inter', sans-serif;
-}
-
-section[data-testid="stSidebar"] {
-    background-color: var(--bg-card) !important;
-    border-right: 1px solid var(--border-subtle);
-}
-
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
-    color: var(--text-main) !important;
-    letter-spacing: -0.02em;
-}
-
-/* Cabeçalho Principal */
-.hero-banner {
-    background: linear-gradient(135deg, rgba(30, 34, 45, 0.95) 0%, rgba(14, 17, 23, 0.98) 100%);
-    border: 1px solid rgba(0, 210, 190, 0.28);
-    border-left: 5px solid #00D2BE;
-    border-radius: 14px;
-    padding: 1.4rem 1.75rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-}
-
-.main-title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 2.35rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, #00D2BE 0%, #38BDF8 55%, #FFFFFF 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.3rem;
-    line-height: 1.15;
-}
-
-.sub-title {
-    font-size: 1.02rem;
-    color: #E2E8F0;
-    margin-bottom: 0;
-    font-weight: 400;
-    line-height: 1.5;
-}
-
-/* Cartões Principais (metric-card) */
-.metric-card {
-    background-color: #1E222D;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 14px;
-    padding: 1.35rem 1.4rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-    transition: border-color 0.2s ease, transform 0.2s ease;
-}
-
-.metric-card:hover {
-    border-color: rgba(0, 210, 190, 0.40);
-}
-
-.card-header-title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.08rem;
-    font-weight: 700;
-    color: #FFFFFF;
-    margin-bottom: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding-bottom: 0.55rem;
-}
-
-.kpi-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    margin: 0.9rem 0;
-}
-
-.kpi-box {
-    background-color: #141820;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    padding: 0.75rem 0.9rem;
-}
-
-.kpi-label {
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #94A3B8;
-    font-weight: 600;
-    margin-bottom: 0.2rem;
-}
-
-.kpi-value {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.55rem;
-    font-weight: 700;
-    color: #FFFFFF;
-}
-
-.kpi-value-accent {
-    color: #00D2BE;
-}
-
-/* Semáforos Independentes */
-.semaphore-green {
-    background: rgba(0, 210, 190, 0.14);
-    border: 1.5px solid #00D2BE;
-    color: #00F5D4;
-    padding: 0.48rem 1rem;
-    border-radius: 9999px;
-    font-weight: 700;
-    display: inline-block;
-    font-size: 0.98rem;
-    letter-spacing: 0.01em;
-}
-
-.semaphore-yellow {
-    background: rgba(245, 158, 11, 0.15);
-    border: 1.5px solid #F59E0B;
-    color: #FBBF24;
-    padding: 0.48rem 1rem;
-    border-radius: 9999px;
-    font-weight: 700;
-    display: inline-block;
-    font-size: 0.98rem;
-    letter-spacing: 0.01em;
-}
-
-.semaphore-red {
-    background: rgba(255, 75, 75, 0.15);
-    border: 1.5px solid #FF4B4B;
-    color: #FF7676;
-    padding: 0.48rem 1rem;
-    border-radius: 9999px;
-    font-weight: 700;
-    display: inline-block;
-    font-size: 0.98rem;
-    letter-spacing: 0.01em;
-}
-
-/* Caixa de Aviso de Amostragem SHAP (Top 10) */
-.xai-audit-banner {
-    background: linear-gradient(90deg, rgba(0, 210, 190, 0.12) 0%, rgba(30, 34, 45, 0.95) 100%);
-    border: 1px solid rgba(0, 210, 190, 0.45);
-    border-left: 5px solid #00D2BE;
-    border-radius: 12px;
-    padding: 1rem 1.35rem;
-    margin: 0.75rem 0 1.25rem 0;
-    color: #FFFFFF;
-    font-size: 0.95rem;
-    line-height: 1.55;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-}
-
-/* Cartões de Farmacóforos e Descritores (XAI Grid) */
-.pharmacophore-card {
-    background-color: #1E222D;
-    border: 1px solid rgba(255, 255, 255, 0.11);
-    border-radius: 12px;
-    padding: 1.15rem 1.25rem;
-    margin-bottom: 1rem;
-    min-height: 220px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.30);
-}
-
-.pharmacophore-card-pos {
-    border-top: 3px solid #00D2BE;
-}
-
-.pharmacophore-card-neg {
-    border-top: 3px solid #FF4B4B;
-}
-
-.pharm-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding-bottom: 0.65rem;
-    margin-bottom: 0.8rem;
-}
-
-.pharm-feature-id {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: #00D2BE;
-    background: rgba(0, 210, 190, 0.12);
-    padding: 0.16rem 0.55rem;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 210, 190, 0.30);
-    display: inline-block;
-    margin-bottom: 0.3rem;
-}
-
-.pharm-feature-title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.02rem;
-    font-weight: 700;
-    color: #FFFFFF;
-    line-height: 1.25;
-}
-
-.shap-tag-pos {
-    font-family: 'JetBrains Mono', monospace;
-    background: rgba(0, 210, 190, 0.16);
-    border: 1px solid #00D2BE;
-    color: #00F5D4;
-    padding: 0.28rem 0.65rem;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.shap-tag-neg {
-    font-family: 'JetBrains Mono', monospace;
-    background: rgba(255, 75, 75, 0.16);
-    border: 1px solid #FF4B4B;
-    color: #FF8080;
-    padding: 0.28rem 0.65rem;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.pharm-body-present {
-    display: flex;
-    gap: 0.95rem;
-    align-items: center;
-}
-
-/* Container Dark/Transparente com Tamanho Controlado para o Fragmento RDKit */
-.bit-img-wrapper {
-    background: rgba(14, 17, 23, 0.78);
-    border: 1.5px solid rgba(0, 210, 190, 0.50);
-    border-radius: 10px;
-    padding: 6px;
-    width: 140px;
-    min-width: 140px;
-    max-width: 140px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.45);
-}
-
-.bit-img-wrapper img {
-    width: 126px;
-    height: 92px;
-    object-fit: contain;
-    border-radius: 6px;
-    display: block;
-}
-
-.bit-smarts-caption {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    color: #00D2BE;
-    background: rgba(30, 34, 45, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    width: 100%;
-    text-align: center;
-    border-radius: 4px;
-    padding: 2px 4px;
-    margin-top: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.absent-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: rgba(255, 75, 75, 0.14);
-    border: 1px solid rgba(255, 75, 75, 0.45);
-    color: #FF9494;
-    font-weight: 700;
-    font-size: 0.84rem;
-    padding: 0.32rem 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 0.55rem;
-}
-
-.present-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: rgba(0, 210, 190, 0.14);
-    border: 1px solid rgba(0, 210, 190, 0.45);
-    color: #00F5D4;
-    font-weight: 700;
-    font-size: 0.80rem;
-    padding: 0.22rem 0.6rem;
-    border-radius: 6px;
-    margin-bottom: 0.45rem;
-}
-
-.descriptor-val-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    background: #141820;
-    border: 1px solid rgba(0, 210, 190, 0.40);
-    color: #FFFFFF;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-    font-size: 0.95rem;
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
-    margin-bottom: 0.6rem;
-}
-
-.pharm-desc-text {
-    color: #E2E8F0;
-    font-size: 0.88rem;
-    line-height: 1.5;
-    margin: 0;
-}
-
-.smiles-box {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.80rem;
-    background: #141820;
-    color: #00D2BE;
-    border: 1px solid rgba(0, 210, 190, 0.25);
-    border-radius: 8px;
-    padding: 0.55rem 0.75rem;
-    word-break: break-all;
-    margin-top: 0.55rem;
-}
-
-.mol-canvas-frame {
-    background: rgba(14, 17, 23, 0.82);
-    border: 1.5px solid rgba(0, 210, 190, 0.40);
-    border-radius: 12px;
-    padding: 0.5rem;
-    text-align: center;
-}
-
-.insample-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: rgba(245, 158, 11, 0.16);
-    border: 1.5px solid #F59E0B;
-    color: #FBBF24;
-    font-weight: 700;
-    font-size: 0.80rem;
-    padding: 0.24rem 0.68rem;
-    border-radius: 9999px;
-    letter-spacing: 0.01em;
-}
-
-.outsample-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: rgba(56, 189, 248, 0.14);
-    border: 1.5px solid #38BDF8;
-    color: #7DD3FC;
-    font-weight: 700;
-    font-size: 0.80rem;
-    padding: 0.24rem 0.68rem;
-    border-radius: 9999px;
-    letter-spacing: 0.01em;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+# -----------------------------------------------------------------------------
+# 2. Design System Centralizado (src.ui.theme)
+# -----------------------------------------------------------------------------
+from src.ui.theme import apply_theme
+apply_theme()
 
 
 # -----------------------------------------------------------------------------
@@ -799,6 +405,16 @@ PHARMACOPHORE_BIT_CATALOG: Dict[int, Dict[str, str]] = {
             "Influencia o balanço estérico e lipofílico da estrutura."
         ),
     },
+    926: {
+        "label": "Carbono Alifático Não Funcionalizado (Raio 0)",
+        "scaffold": "Átomo de carbono alifático isolado [C;r0]",
+        "role_a2a": (
+            "Hipótese da literatura: Centro carbonado alifático simples; contribui para a hidrofobicidade geral e empacotamento apolar."
+        ),
+        "role_herg": (
+            "Hipótese da literatura: Cadeias alquílicas modulam incrementalmente a lipofilicidade global da molécula."
+        ),
+    },
 }
 
 DESCRIPTOR_INFO_CATALOG: Dict[str, Dict[str, str]] = {
@@ -871,6 +487,74 @@ DESCRIPTOR_INFO_CATALOG: Dict[str, Dict[str, str]] = {
         ),
     },
 }
+
+BIT_TRANSLATION_MAP: Dict[str, str] = {
+    # Bits de Morgan Fingerprint (ECFP4) recorrentes e decisivos
+    "fp_831": "Aceptor de H em Anel Heteroaromático (N sp²)",
+    "fp_964": "Núcleo Purínico / Doador-Aceptor de H",
+    "fp_904": "Substituinte Fluoroarílico",
+    "fp_234": "Núcleo Imídico / Xantínico N-Metilado",
+    "fp_564": "Nitrogênio Purínico N-Alquilado",
+    "fp_575": "Sistema Xantínico N-Etilado",
+    "fp_517": "Aceptor Carbonílico Purínico",
+    "fp_34": "Substituinte N-Etil / Alquil-Heterociclo",
+    "fp_465": "Junção N-Alquil-Purinona",
+    "fp_850": "Ponte Alquil-Heteroaromática",
+    "fp_128": "Amina Alifática / Centro Básico",
+    "fp_147": "Grupo Amino Primário / Secundário Polar",
+    "fp_672": "Junção de Anel Purínico / Heteroaromático",
+    "fp_433": "Amina Exocíclica Conjugada (-NH2)",
+    "fp_323": "Eixo Biarílico / Heteroaril-Aril Conjugado",
+    "fp_312": "Anel Furano / Oxazol Heteroaromático",
+    "fp_829": "Anel Fenila Para-Substituído",
+    "fp_338": "Metileno Benzílico / Carbinol Arílico",
+    "fp_887": "Cadeia Espaçadora Alifática (-CH2-CH2-)",
+    "fp_767": "Amina Terciária / Centro Ramificado",
+    "fp_807": "Grupo Hidroxila / Éter Polar (-OH / -O-)",
+    "fp_893": "Oxigênio Carbonílico Heterocíclico",
+    "fp_726": "Arcabouço Aromático Benzenoide",
+    "fp_650": "Centro Oxigenado Polar",
+    "fp_653": "Cadeia Alquil-Amina Terciária",
+    "fp_121": "Ligação Carbono-Nitrogênio",
+    "fp_549": "Núcleo Bicíclico Xantínico",
+    "fp_523": "Substituinte C8-Purínico / Metóxi",
+    "fp_219": "Ponte Etil-Arílica / Benzílica",
+    "fp_80": "Carbono Alifático Saturado (sp³)",
+    "fp_1": "Centro Carbonado Substituído",
+    "fp_484": "Subestrutura Heteroaromática Nitrogenada",
+    "fp_825": "Espaçador Alifático Adjacente a Heteroátomo",
+    "fp_926": "Carbono Alifático (Raio 0)",
+    # Descritores Físico-Químicos 2D Globais
+    "MolWt": "Massa Molecular Média (MolWt)",
+    "MolLogP": "Lipofilicidade Calculada (MolLogP)",
+    "TPSA": "Área de Superfície Polar Topológica (TPSA)",
+    "NumHDonors": "Doadores de Ligação de Hidrogênio (HBD)",
+    "NumHAcceptors": "Aceptores de Ligação de Hidrogênio (HBA)",
+    "NumRotatableBonds": "Ligações Rotacionáveis (Flexibilidade)",
+}
+
+
+def resolve_translated_feature_name(
+    feature_name: str,
+    mol: Optional[Chem.Mol] = None,
+    bit_info: Optional[Dict[int, Any]] = None,
+) -> str:
+    """Retorna a denominação química traduzida e didática para qualquer atributo (bit ou descritor)."""
+    if feature_name in BIT_TRANSLATION_MAP:
+        return BIT_TRANSLATION_MAP[feature_name]
+    if feature_name in DESCRIPTOR_INFO_CATALOG:
+        return DESCRIPTOR_INFO_CATALOG[feature_name]["label"]
+    if feature_name.startswith("fp_"):
+        try:
+            bit_id = int(feature_name.split("_")[1])
+            if bit_id in PHARMACOPHORE_BIT_CATALOG:
+                return PHARMACOPHORE_BIT_CATALOG[bit_id]["label"]
+            if mol is not None and bit_info is not None:
+                det = resolve_pharmacophore_details(feature_name, mol, bit_info)
+                return det.get("label", f"Subestrutura ECFP4 (#{bit_id})")
+        except Exception:
+            pass
+    return feature_name
 
 
 # -----------------------------------------------------------------------------
@@ -1059,6 +743,7 @@ def build_pharmacophore_card_html(
     target: str = "A2A",
 ) -> str:
     """Gera o HTML compactado (sem indentação Markdown) de um cartão de farmacóforo/descritor."""
+    translated_name = resolve_translated_feature_name(feature_name, mol, bit_info)
     details = resolve_pharmacophore_details(feature_name, mol, bit_info, target=target)
     is_descriptor = feature_name in DESCRIPTOR_NAMES
 
@@ -1068,7 +753,7 @@ def build_pharmacophore_card_html(
         unit_suffix = " pIC50"
     else:
         is_favorable = shap_impact < 0
-        effect_word = "Reduz Toxicidade" if shap_impact < 0 else "Aumenta Risco hERG"
+        effect_word = "Reduz Risco" if shap_impact < 0 else "Aumenta Risco hERG"
         unit_suffix = " P(hERG)"
 
     card_border_cls = "pharmacophore-card-pos" if is_favorable else "pharmacophore-card-neg"
@@ -1082,12 +767,16 @@ def build_pharmacophore_card_html(
             else f"{mol_value:.2f}"
         )
         body_html = (
-            f'<div>'
-            f'<div class="descriptor-val-badge">'
-            f'<span>📐 Valor Calculado:</span>'
-            f'<span style="color:#00D2BE;">{val_formatted} {details["unit"]}</span>'
+            f'<div class="pharm-body-present">'
+            f'<div class="bit-img-wrapper" style="border: 1.5px solid rgba(0, 210, 190, 0.45); background: rgba(14, 17, 23, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">'
+            f'<div style="font-size: 2rem; line-height: 1;">📐</div>'
+            f'<div style="font-size: 0.78rem; color: #00D2BE; font-weight: 700; margin-top: 4px;">{val_formatted} {details["unit"]}</div>'
+            f'<div style="font-size: 0.68rem; color: #94A3B8; margin-top: 2px;">Propriedade 2D</div>'
             f'</div>'
-            f'<p class="pharm-desc-text">{details["role"]}</p>'
+            f'<div style="flex:1;">'
+            f'<div class="descriptor-val-badge">📐 Descritor Físico-Químico: <b style="color:#00D2BE;">{val_formatted} {details["unit"]}</b></div>'
+            f'<p class="pharm-desc-text" style="margin-top:0.35rem;">{details["role"]}</p>'
+            f'</div>'
             f'</div>'
         )
     else:
@@ -1097,20 +786,26 @@ def build_pharmacophore_card_html(
         if is_present:
             b64_img = render_morgan_bit_base64(mol, bit_id, bit_info)
             frag_smi = details.get("frag_smi", f"fp_{bit_id}")
-            img_block = (
-                f'<div class="bit-img-wrapper">'
-                f'<img src="data:image/png;base64,{b64_img}" alt="{feature_name}"/>'
-                f'<div class="bit-smarts-caption" title="{frag_smi}">{frag_smi}</div>'
-                f'</div>'
-                if b64_img
-                else ""
-            )
+            if b64_img:
+                img_block = (
+                    f'<div class="bit-img-wrapper">'
+                    f'<img src="data:image/png;base64,{b64_img}" alt="{feature_name}"/>'
+                    f'<div class="bit-smarts-caption" title="{frag_smi}">{frag_smi}</div>'
+                    f'</div>'
+                )
+            else:
+                img_block = (
+                    f'<div class="bit-img-wrapper" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:120px; background:rgba(14,17,23,0.85);">'
+                    f'<span style="font-size:1.8rem;">🔬</span>'
+                    f'<span style="font-size:0.70rem; color:#00D2BE; font-weight:600; margin-top:4px;">Microambiente Ativo</span>'
+                    f'</div>'
+                )
             body_html = (
                 f'<div class="pharm-body-present">'
                 f'{img_block}'
                 f'<div style="flex:1;">'
-                f'<div class="present-badge">✅ Presente na molécula (Bit Ativo = 1)</div>'
-                f'<p class="pharm-desc-text">{details["role"]}</p>'
+                f'<div class="present-badge">✅ Subestrutura Presente (Bit Ativo = 1)</div>'
+                f'<p class="pharm-desc-text" style="margin-top:0.35rem;">{details["role"]}</p>'
                 f'</div>'
                 f'</div>'
             )
@@ -1129,13 +824,22 @@ def build_pharmacophore_card_html(
                     )
                 )
             )
+            absent_icon_block = (
+                f'<div class="bit-img-wrapper" style="border: 1.5px dashed rgba(255, 75, 75, 0.50); background: rgba(14, 17, 23, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">'
+                f'<div style="font-size: 2.2rem; line-height: 1;">❌</div>'
+                f'<div style="font-size: 0.72rem; color: #FF4B4B; font-weight: 700; margin-top: 6px;">Bit Ausente</div>'
+                f'</div>'
+            )
             body_html = (
-                f'<div>'
-                f'<div class="absent-badge">❌ Ausente na molécula (Valor = 0)</div>'
-                f'<p class="pharm-desc-text" style="margin-bottom:0.35rem;">'
-                f'<strong>Subestrutura de Referência:</strong> {details["scaffold"]}'
+                f'<div class="pharm-body-present">'
+                f'{absent_icon_block}'
+                f'<div style="flex:1;">'
+                f'<div class="absent-badge">❌ Subestrutura Ausente (Bit = 0)</div>'
+                f'<p class="pharm-desc-text" style="margin-bottom:0.35rem; margin-top:0.35rem;">'
+                f'<strong>Referência:</strong> {details["scaffold"]}'
                 f'</p>'
                 f'<p class="pharm-desc-text">{absence_reason} {details["role"]}</p>'
+                f'</div>'
                 f'</div>'
             )
 
@@ -1144,14 +848,15 @@ def build_pharmacophore_card_html(
         f'<div class="pharm-card-header">'
         f'<div>'
         f'<span class="pharm-feature-id">{feature_name}</span>'
-        f'<div class="pharm-feature-title">{details["label"]}</div>'
+        f'<div class="pharm-feature-title">{translated_name}</div>'
         f'</div>'
         f'<span class="{tag_cls}">{shap_str}</span>'
         f'</div>'
         f'{body_html}'
         f'</div>'
     )
-    return card_html
+    clean_lines = [line.strip() for line in card_html.splitlines() if line.strip()]
+    return "\n".join(clean_lines)
 
 
 # -----------------------------------------------------------------------------
@@ -1479,7 +1184,7 @@ def build_control_provenance_html(
         </div>
     </div>
     <p class="pharm-desc-text" style="font-size:0.86rem; margin-bottom:0.75rem;">{provenance["desc"]}</p>
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">
         <div class="kpi-box">
             <div class="kpi-label">1. Predição do Modelo (A2A)</div>
             <div style="font-size:1.05rem; font-weight:700; color:#00D2BE;">pIC50 predito = {pred_pIC50:.2f}</div>
@@ -1510,216 +1215,11 @@ def build_control_provenance_html(
     return "\n".join(line.strip() for line in html.strip().splitlines() if line.strip())
 
 
-# -----------------------------------------------------------------------------
-# 7. Barra Lateral (Sidebar)
-# -----------------------------------------------------------------------------
-with st.sidebar:
-    st.markdown("### 🧬 MultiTarget BioPredict")
-    st.caption("Triagem Virtual Multiobjetivo $A_{2A}$ × hERG")
-
-    st.markdown("---")
-    st.markdown("#### ⚙️ Modo de Entrada")
-    input_mode = st.radio(
-        "Selecione o método de submissão:",
-        ["🧪 Controles de Referência (1-Clique)", "✏️ Inserir SMILES (Texto)", "🎨 Desenhar Molécula (Ketcher)"],
-        index=0,
-    )
-
-    st.markdown("---")
-    st.markdown("#### 📊 Modelos Preditivos Locais")
-    render_html(
-        """
-        <div class="metric-card" style="padding:0.9rem 1rem; margin-bottom:0.6rem;">
-            <div style="color:#00D2BE; font-weight:700; font-size:0.9rem;">🎯 Eficácia Terapêutica (A2A)</div>
-            <div style="font-size:0.82rem; color:#E2E8F0; margin-top:0.2rem;">
-                Algoritmo: <code>XGBoost Regressor</code><br>
-                Holdout 80/20 prévio (n=273): <b>R² = 0,723</b> | <b>RMSE = 0,578</b><br>
-                <span style="color:#94A3B8; font-size:0.76rem;">Artefato final reajustado em 100% dos dados (1.364 compostos).</span>
-            </div>
-        </div>
-        <div class="metric-card" style="padding:0.9rem 1rem; margin-bottom:0.4rem;">
-            <div style="color:#00D2BE; font-weight:700; font-size:0.9rem;">❤️ Triagem hERG (Escore do Modelo)</div>
-            <div style="font-size:0.82rem; color:#E2E8F0; margin-top:0.2rem;">
-                Algoritmo: <code>Random Forest Classifier</code><br>
-                Holdout 80/20 prévio (n=2.628): <b>ROC-AUC = 0,930</b> | <b>Brier = 0,112</b><br>
-                <span style="color:#94A3B8; font-size:0.76rem;">Artefato final reajustado em 100% (13.136 compostos); escore via <code>predict_proba</code> sem calibração pós-hoc.</span>
-            </div>
-        </div>
-        """
-    )
-
-    st.markdown("---")
-    st.markdown("#### 🚦 Classes Operacionais dos Modelos")
-    st.markdown(
-        r"""
-        **Eficácia $A_{2A}$ ($pIC_{50}$ predito):**
-        - 🟢 **Alta Potência:** $pIC_{50} \ge 6{,}5$
-        - 🟡 **Moderada:** $5{,}0 \le pIC_{50} < 6{,}5$
-        - 🔴 **Baixa/Inativo:** $pIC_{50} < 5{,}0$
-
-        **Escore Estimado hERG ($P_{\text{hERG}}$):**
-        - 🟢 **Baixo (Operacional):** $P < 0{,}30$ ($30\%$)
-        - 🟡 **Intermediário/Moderado:** $0{,}30 \le P < 0{,}70$ ($30\% \le P < 70\%$)
-        - 🔴 **Alto (Operacional):** $P \ge 0{,}70$ ($70\%$)
-        """
-    )
-    st.caption(
-        "Nota de Governança: As métricas de holdout referem-se à divisão 80/20 anterior ao ajuste final (refit 100%). "
-        "Predições sobre compostos presentes no treino (In-Sample) não constituem avaliação independente."
-    )
-    st.caption("100% Local · AMD Ryzen 7 CPU · 8 GB RAM")
 
 
 # -----------------------------------------------------------------------------
-# 8. Cabeçalho Principal
+# 6.1 Funções Canônicas de Classificação e Gráficos (Fachada Pública de Testes)
 # -----------------------------------------------------------------------------
-render_html(
-    """
-    <div class="hero-banner">
-        <div class="main-title">MultiTarget BioPredict</div>
-        <div class="sub-title">
-            Plataforma Computacional de Triagem Virtual Multiobjetivo e Interpretabilidade Química (RDKit + SHAP):
-            Afinidade Predita ao Receptor de Adenosina <b>A<sub>2A</sub></b> vs. Escore de Probabilidade Estimado para Bloqueio do Canal <b>hERG (K<sub>v</sub>11.1)</b>
-        </div>
-    </div>
-    """
-)
-
-if not models_loaded:
-    st.error(f"Erro ao carregar os modelos preditivos em `models/`: {load_error_msg}")
-    st.stop()
-
-
-# -----------------------------------------------------------------------------
-# 9. Resolução da Molécula Submetida (3 Modos Preservados)
-# -----------------------------------------------------------------------------
-active_smiles = ""
-active_name = "Molécula Personalizada"
-active_desc = "Estrutura molecular submetida para auditoria preditiva multiobjetivo e decomposição farmacofórica SHAP."
-
-if input_mode == "🧪 Controles de Referência (1-Clique)":
-    st.markdown("#### 🧪 Selecione um Composto de Controle Farmacológico")
-    btn_cols = st.columns(len(REFERENCE_CONTROLS))
-    if (
-        "selected_control_key" not in st.session_state
-        or st.session_state["selected_control_key"] not in REFERENCE_CONTROLS
-    ):
-        st.session_state["selected_control_key"] = list(REFERENCE_CONTROLS.keys())[0]
-
-    for idx, (ctrl_key, ctrl_val) in enumerate(REFERENCE_CONTROLS.items()):
-        is_active = st.session_state["selected_control_key"] == ctrl_key
-        if btn_cols[idx].button(
-            ctrl_key,
-            key=f"ctrl_btn_{idx}",
-            use_container_width=True,
-            type="primary" if is_active else "secondary",
-        ):
-            st.session_state["selected_control_key"] = ctrl_key
-            st.rerun()
-
-    selected_ctrl = st.session_state["selected_control_key"]
-    ctrl_data = REFERENCE_CONTROLS[selected_ctrl]
-    active_smiles = ctrl_data["smiles"]
-    active_name = ctrl_data["name"]
-    active_desc = ctrl_data["desc"]
-
-elif input_mode == "✏️ Inserir SMILES (Texto)":
-    col_input, col_preset = st.columns([3, 1])
-    with col_preset:
-        preset_choice = st.selectbox(
-            "Atalhos rápidos:",
-            ["(Personalizado)", "Cafeína", "Istradefilina", "Terfenadina", "Taurina", "L-Teanina"],
-            index=0,
-        )
-    default_smi = "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
-    if preset_choice == "Cafeína":
-        default_smi = REFERENCE_CONTROLS["☕ Cafeína (CHEMBL113)"]["smiles"]
-    elif preset_choice == "Istradefilina":
-        default_smi = REFERENCE_CONTROLS["💊 Istradefilina (CHEMBL431770)"]["smiles"]
-    elif preset_choice == "Terfenadina":
-        default_smi = REFERENCE_CONTROLS["⚠️ Terfenadina (CHEMBL22)"]["smiles"]
-    elif preset_choice == "Taurina":
-        default_smi = REFERENCE_CONTROLS["🌿 Taurina (Endógeno)"]["smiles"]
-    elif preset_choice == "L-Teanina":
-        default_smi = REFERENCE_CONTROLS["🍵 L-Teanina (Nutracêutico)"]["smiles"]
-
-    with col_input:
-        user_smiles = st.text_input(
-            "Insira o código SMILES da molécula:",
-            value=default_smi,
-            placeholder="Ex: CCN1C(=O)C2=C(N=C(N2C)/C=C/C3=CC(=C(C=C3)OC)OC)N(C1=O)CC",
-        )
-    active_smiles = user_smiles.strip()
-
-elif input_mode == "🎨 Desenhar Molécula (Ketcher)":
-    try:
-        from streamlit_ketcher import st_ketcher
-
-        st.markdown("Desenhe ou edite a estrutura química no editor bidimensional abaixo e clique em **Apply**:")
-        ketcher_smiles = st_ketcher("Cn1c(=O)c2c(ncn2C)n(C)c1=O", height=450)
-        active_smiles = ketcher_smiles.strip() if ketcher_smiles else ""
-        active_name = "Composto Desenhado (Ketcher)"
-    except Exception as e:
-        st.warning(f"Editor Ketcher indisponível ({e}). Por favor, utilize a entrada por código SMILES.")
-        active_smiles = st.text_input("SMILES:", value="Cn1c(=O)c2c(ncn2C)n(C)c1=O")
-
-
-# -----------------------------------------------------------------------------
-# 10. Padronização, Featurização e Rastreamento de Bits (bitInfo RDKit)
-# -----------------------------------------------------------------------------
-if not active_smiles:
-    st.warning("Por favor, selecione, insira ou desenhe uma molécula para iniciar a triagem.")
-    st.stop()
-
-canonical_smi = canonicalize_smiles(active_smiles)
-
-if canonical_smi is None:
-    st.error(
-        f"❌ **Estrutura Química Inválida:** O RDKit não pôde interpretar o código submetido (`{active_smiles}`). "
-        "Verifique a valência e sintaxe do código SMILES."
-    )
-    st.stop()
-
-provenance = resolve_compound_provenance(canonical_smi)
-active_name = provenance["name"]
-active_desc = provenance["desc"]
-
-mol_obj = Chem.MolFromSmiles(canonical_smi)
-bit_info_map = extract_morgan_bit_info(mol_obj, radius=2, n_bits=1024)
-
-df_input = pd.DataFrame([{"canonical_smiles": canonical_smi}])
-df_feat = featurize_dataframe(df_input, "canonical_smiles")
-X_sample = df_feat[list(FEATURE_NAMES)]
-
-
-# -----------------------------------------------------------------------------
-# 11. Inferência Multiobjetivo Concorrente
-# -----------------------------------------------------------------------------
-pred_pIC50 = float(model_a2a.predict(X_sample)[0])
-pred_IC50_nM = float(10 ** (9.0 - pred_pIC50))
-
-prob_herg = float(model_herg.predict_proba(X_sample)[0, 1])
-safety_index = 1.0 - prob_herg
-
-if pred_pIC50 >= 6.5:
-    a2a_color_class = "semaphore-green"
-    a2a_label = "🟢 Alta Potência Operacional (pIC50 ≥ 6,5)"
-    a2a_desc = (
-        "Predição do modelo na faixa operacional de alta potência (pIC50 ≥ 6,5). "
-        "Verifique a proveniência experimental e o domínio de aplicabilidade antes de inferir atividade biológica."
-    )
-elif pred_pIC50 >= 5.0:
-    a2a_color_class = "semaphore-yellow"
-    a2a_label = "🟡 Potência Moderada Operacional (5,0 ≤ pIC50 < 6,5)"
-    a2a_desc = (
-        "Predição do modelo na faixa operacional micromolar moderada (5,0 ≤ pIC50 < 6,5). "
-        "Compare com a medição experimental no dataset quando disponível."
-    )
-else:
-    a2a_color_class = "semaphore-red"
-    a2a_label = "🔴 Baixa Potência / Inativo Operacional (pIC50 < 5,0)"
-    a2a_desc = "Predição do modelo abaixo do limiar operacional micromolar (pIC50 < 5,0)."
-
 def classify_herg_operational_risk(prob_herg: float) -> Dict[str, str]:
     """
     Classifica o escore estimado P_hERG segundo a convenção canônica:
@@ -1761,202 +1261,13 @@ def classify_herg_operational_risk(prob_herg: float) -> Dict[str, str]:
             ),
         }
 
-
-herg_operational = classify_herg_operational_risk(prob_herg)
-herg_color_class = herg_operational["color_class"]
-herg_label = herg_operational["label"]
-herg_desc = herg_operational["desc"]
-
-render_html(build_control_provenance_html(provenance, pred_pIC50, prob_herg))
-
-
-# -----------------------------------------------------------------------------
-# 12. Painel de Decisão Multiobjetivo (Cartões Estilizados metric-card)
-# -----------------------------------------------------------------------------
-st.subheader("🎯 Painel de Decisão Multiobjetivo")
-
-col_mol, col_sem1, col_sem2 = st.columns([1.15, 1.42, 1.42])
-
-with col_mol:
-    mol_b64 = render_molecule_dark_base64(mol_obj, size=(420, 250))
-    if mol_b64:
-        mol_img_html = (
-            f'<div class="mol-canvas-frame">'
-            f'<img src="data:image/png;base64,{mol_b64}" style="max-width:100%; height:180px; object-fit:contain; border-radius:8px;"/>'
-            f'</div>'
-        )
-    else:
-        mol_img_html = '<div style="color:#94A3B8;">Imagem não disponível</div>'
-
-    render_html(
-        f"""
-        <div class="metric-card">
-            <div class="card-header-title">
-                <span>🧪 Estrutura 2D Padronizada (RDKit)</span>
-                <span style="font-size:0.78rem; color:#00D2BE; font-weight:600;">{len(bit_info_map)} bits ativos</span>
-            </div>
-            {mol_img_html}
-            <div class="smiles-box" title="SMILES Canônico Isomérico">{canonical_smi}</div>
-        </div>
-        """
-    )
-
-with col_sem1:
-    ic50_str = f"{pred_IC50_nM:.1f} nM" if pred_IC50_nM < 1000 else f"{pred_IC50_nM / 1000:.2f} µM"
-    gauge_val_pct = int(np.clip((pred_pIC50 - 4.0) / (10.0 - 4.0), 0.0, 1.0) * 100)
-    a2a_sample_badge_cls = "insample-badge" if provenance["a2a_in_sample"] else "outsample-badge"
-    a2a_sample_icon = "📌" if provenance["a2a_in_sample"] else "🔬"
-    exp_kpi_str = (
-        f"{provenance['a2a_exp_pic50']:.2f} (ChEMBL)"
-        if provenance["a2a_exp_pic50"] is not None
-        else "Ausente (Out-of-Sample)"
-    )
-
-    render_html(
-        f"""
-        <div class="metric-card">
-            <div class="card-header-title">
-                <span>1. Potência no Receptor A<sub>2A</sub> (Regressão)</span>
-                <span style="font-size:0.78rem; color:#94A3B8;">XGBoost</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.75rem;">
-                <span class="{a2a_color_class}">{a2a_label}</span>
-                <span class="{a2a_sample_badge_cls}">{a2a_sample_icon} {provenance["a2a_sample_status"]}</span>
-            </div>
-            <div class="kpi-grid">
-                <div class="kpi-box">
-                    <div class="kpi-label">Potência Predita (pIC50)</div>
-                    <div class="kpi-value kpi-value-accent">{pred_pIC50:.2f}</div>
-                    <div style="font-size:0.75rem; color:#94A3B8;">IC50 predito: {ic50_str}</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Medição no Dataset (pIC50 exp.)</div>
-                    <div class="kpi-value" style="font-size:1.22rem;">{exp_kpi_str}</div>
-                    <div style="font-size:0.75rem; color:#94A3B8;">ID: {provenance["chembl_id"]}</div>
-                </div>
-            </div>
-            <div style="background:#141820; border-radius:999px; height:10px; width:100%; overflow:hidden; margin:0.65rem 0;">
-                <div style="background:linear-gradient(90deg, #00D2BE, #38BDF8); width:{gauge_val_pct}%; height:100%; border-radius:999px;"></div>
-            </div>
-            <p class="pharm-desc-text" style="font-size:0.84rem; color:#CBD5E1; margin-top:0.45rem;">
-                <strong>Interpretação Operacional:</strong> {a2a_desc}
-            </p>
-        </div>
-        """
-    )
-
-with col_sem2:
-    herg_bar_pct = int(np.clip(prob_herg * 100, 0, 100))
-    herg_bar_color = "#00D2BE" if prob_herg < 0.30 else ("#F59E0B" if prob_herg < 0.70 else "#FF4B4B")
-    herg_sample_badge_cls = "insample-badge" if provenance["herg_in_sample"] else "outsample-badge"
-    herg_sample_icon = "📌" if provenance["herg_in_sample"] else "🔬"
-
-    render_html(
-        f"""
-        <div class="metric-card">
-            <div class="card-header-title">
-                <span>2. Triagem hERG (Canal K<sub>v</sub>11.1)</span>
-                <span style="font-size:0.78rem; color:#94A3B8;">Random Forest (predict_proba)</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.75rem;">
-                <span class="{herg_color_class}">{herg_label}</span>
-                <span class="{herg_sample_badge_cls}">{herg_sample_icon} {provenance["herg_sample_status"]}</span>
-            </div>
-            <div class="kpi-grid">
-                <div class="kpi-box">
-                    <div class="kpi-label">Escore Estimado P(hERG)</div>
-                    <div class="kpi-value" style="color:{herg_bar_color};">{prob_herg:.1%}</div>
-                    <div style="font-size:0.75rem; color:#94A3B8;">Escore do modelo (não calibrado)</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Índice Complementar (1 - P_hERG)</div>
-                    <div class="kpi-value kpi-value-accent">{safety_index:.1%}</div>
-                    <div style="font-size:0.75rem; color:#94A3B8;">Derivado matematicamente do escore</div>
-                </div>
-            </div>
-            <div style="background:#141820; border-radius:999px; height:10px; width:100%; overflow:hidden; margin:0.65rem 0;">
-                <div style="background:{herg_bar_color}; width:{herg_bar_pct}%; height:100%; border-radius:999px;"></div>
-            </div>
-            <p class="pharm-desc-text" style="font-size:0.84rem; color:#CBD5E1; margin-top:0.45rem;">
-                <strong>Interpretação Operacional:</strong> {herg_desc}
-            </p>
-        </div>
-        """
-    )
-
-
-# -----------------------------------------------------------------------------
-# 13. Propriedades Físico-Químicas 2D & Regra de Lipinski (Cartões Estilizados)
-# -----------------------------------------------------------------------------
-desc_dict = compute_2d_descriptors(mol_obj)
-mol_wt = desc_dict["MolWt"]
-mol_logp = desc_dict["MolLogP"]
-tpsa = desc_dict["TPSA"]
-hbd = desc_dict["NumHDonors"]
-hba = desc_dict["NumHAcceptors"]
-rot_bonds = desc_dict["NumRotatableBonds"]
-
-lipinski_violations = sum([
-    mol_wt > 500,
-    mol_logp > 5.0,
-    hbd > 5,
-    hba > 10,
-])
-
-with st.expander("📋 Propriedades Físico-Químicas 2D e Auditoria de Drogabilidade (Regra de Lipinski)", expanded=False):
-    lip_badge = (
-        '<span class="semaphore-green" style="font-size:0.88rem; padding:0.3rem 0.85rem;">✅ 0 Violações — Alta Drogabilidade Oral</span>'
-        if lipinski_violations == 0
-        else f'<span class="semaphore-yellow" style="font-size:0.88rem; padding:0.3rem 0.85rem;">⚠️ {lipinski_violations} Violação(ões) da Regra dos Cinco de Lipinski</span>'
-    )
-    render_html(
-        f"""
-        <div class="metric-card" style="margin-bottom:0.4rem;">
-            <div class="card-header-title">
-                <span>Parâmetros Físico-Químicos Calculados (RDKit 2D)</span>
-                {lip_badge}
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:0.75rem; margin-top:0.5rem;">
-                <div class="kpi-box">
-                    <div class="kpi-label">Massa (MolWt)</div>
-                    <div class="kpi-value" style="font-size:1.25rem;">{mol_wt:.1f} <span style="font-size:0.8rem; color:#94A3B8;">Da</span></div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Lipofilicidade (LogP)</div>
-                    <div class="kpi-value" style="font-size:1.25rem; color:#00D2BE;">{mol_logp:.2f}</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Área Polar (TPSA)</div>
-                    <div class="kpi-value" style="font-size:1.25rem;">{tpsa:.1f} <span style="font-size:0.8rem; color:#94A3B8;">Å²</span></div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Doadores H (HBD)</div>
-                    <div class="kpi-value" style="font-size:1.25rem;">{hbd}</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Aceptores H (HBA)</div>
-                    <div class="kpi-value" style="font-size:1.25rem;">{hba}</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Lig. Rotacionáveis</div>
-                    <div class="kpi-value" style="font-size:1.25rem;">{rot_bonds}</div>
-                </div>
-            </div>
-        </div>
-        """
-    )
-
-
-# -----------------------------------------------------------------------------
-# 14. Matriz Multiobjetivo 2D de Decisão Farmacológica (Alto Contraste Dark Mode)
-# -----------------------------------------------------------------------------
 def build_multiobjective_figure(
     x_cur: float,
     y_cur: float,
     active_name: str,
 ) -> Tuple[plt.Figure, plt.Axes]:
     """Constrói o gráfico multiobjetivo (pIC50 vs. 1 - P_hERG) em coordenadas estritas de dados."""
-    fig_mat, ax_mat = plt.subplots(figsize=(8.2, 5.2), facecolor="#0E1117")
+    fig_mat, ax_mat = plt.subplots(figsize=(10.5, 5.2), facecolor="#0E1117")
     ax_mat.set_facecolor("#1E222D")
 
     # Quatro linhas explícitas de referência delimitando as faixas operacionais
@@ -2022,7 +1333,7 @@ def build_multiobjective_figure(
     ax_mat.text(
         9.0,
         0.95,
-        "QUADRANTE IDEAL 🏆\nPotente & Baixo Escore hERG",
+        "QUADRANTE IDEAL\nPotente & Baixo Escore hERG",
         ha="center",
         va="top",
         fontsize=9.5,
@@ -2032,7 +1343,7 @@ def build_multiobjective_figure(
     ax_mat.text(
         9.0,
         0.05,
-        "DESCARTE CRÍTICO ⚠️\nPotente porém Alto Escore hERG",
+        "DESCARTE CRÍTICO\nPotente porém Alto Escore hERG",
         ha="center",
         va="bottom",
         fontsize=9.5,
@@ -2086,7 +1397,6 @@ def build_multiobjective_figure(
     plt.tight_layout()
     return fig_mat, ax_mat
 
-
 def classify_herg_safety_axis(y_cur: float, atol: float = 1e-12) -> str:
     """
     Classifica o eixo complementar y = 1 - P_hERG segundo a convenção canônica:
@@ -2102,7 +1412,6 @@ def classify_herg_safety_axis(y_cur: float, atol: float = 1e-12) -> str:
         return "baixo"
     else:
         return "intermediario"
-
 
 def classify_multiobjective_quadrant(
     x_cur: float,
@@ -2165,19 +1474,504 @@ def classify_multiobjective_quadrant(
         }
 
 
-st.subheader("🗺️ Matriz de Decisão Multiobjetivo (Potência Predita A2A × Índice Complementar 1 - P_hERG)")
+# -----------------------------------------------------------------------------
+# 7. Execução Legada em Modo de Transição
+# -----------------------------------------------------------------------------
+def render_legacy_analysis_view() -> None:
+    """Executa a visualização e inferência funcional do modo legado."""
+    # -----------------------------------------------------------------------------
+    # 7. Barra Lateral (Sidebar)
+    # -----------------------------------------------------------------------------
+    with st.sidebar:
+        st.markdown("### 🧬 MultiTarget BioPredict")
+        st.caption("Triagem Virtual Multiobjetivo $A_{2A}$ × hERG")
 
-col_quad, col_quad_desc = st.columns([2.0, 1.25])
+        st.markdown("---")
+        st.markdown("#### ⚙️ Modo de Entrada")
+        input_mode = st.radio(
+            "Selecione o método de submissão:",
+            ["🧪 Controles de Referência (1-Clique)", "✏️ Inserir SMILES (Texto)", "🎨 Desenhar Molécula (Ketcher)"],
+            index=0,
+        )
 
-x_cur = pred_pIC50
-y_cur = safety_index
+        st.markdown("---")
+        st.markdown("#### 📊 Modelos Preditivos Locais")
+        render_html(
+            """
+            <div class="metric-card" style="padding:0.85rem 1rem; margin-bottom:0.5rem;">
+                <div style="color:#00D2BE; font-weight:700; font-size:0.88rem;">🎯 Eficácia A<sub>2A</sub></div>
+                <div style="font-size:0.80rem; color:#CBD5E1; margin-top:0.25rem;">
+                    Predição contínua de afinidade (pIC<sub>50</sub> / IC<sub>50</sub>) via ensemble XGBoost.
+                </div>
+            </div>
+            <div class="metric-card" style="padding:0.85rem 1rem; margin-bottom:0.5rem;">
+                <div style="color:#FF4B4B; font-weight:700; font-size:0.88rem;">❤️ Risco Cardíaco hERG</div>
+                <div style="font-size:0.80rem; color:#CBD5E1; margin-top:0.25rem;">
+                    Triagem antitóxica do canal K<sub>v</sub>11.1 com classificação semafórica de risco.
+                </div>
+            </div>
+            """
+        )
+        with st.expander("ℹ️ Metadados e Governança dos Modelos", expanded=False):
+            st.markdown(
+                """
+                * **A2A (XGBoost Regressor):**
+                  Holdout 80/20 prévio (n=273): $R^2 = 0{,}723$ | $\\text{RMSE} = 0{,}578$. Artefato final reajustado em 100% dos dados (1.364 compostos).
+                * **hERG (Random Forest Classifier):**
+                  Holdout 80/20 prévio (n=2.628): $\\text{ROC-AUC} = 0{,}930$ | $\\text{Brier} = 0{,}112$. Artefato final reajustado em 100% (13.136 compostos); escore via `predict_proba` sem calibração pós-hoc.
+                * *Nota:* As métricas de validação referem-se à divisão holdout independente anterior ao reajuste final.
+                """
+            )
 
-with col_quad:
+        st.markdown("---")
+        st.markdown("#### 🚦 Classes Operacionais dos Modelos")
+        st.markdown(
+            r"""
+            **Eficácia $A_{2A}$ ($pIC_{50}$ predito):**
+            - 🟢 **Alta Potência:** $pIC_{50} \ge 6{,}5$
+            - 🟡 **Moderada:** $5{,}0 \le pIC_{50} < 6{,}5$
+            - 🔴 **Baixa/Inativo:** $pIC_{50} < 5{,}0$
+
+            **Escore Estimado hERG ($P_{\text{hERG}}$):**
+            - 🟢 **Baixo (Operacional):** $P < 0{,}30$ ($30\%$)
+            - 🟡 **Intermediário/Moderado:** $0{,}30 \le P < 0{,}70$ ($30\% \le P < 70\%$)
+            - 🔴 **Alto (Operacional):** $P \ge 0{,}70$ ($70\%$)
+            """
+        )
+        st.caption("100% Local · AMD Ryzen 7 CPU · 8 GB RAM")
+
+
+    # -----------------------------------------------------------------------------
+    # 8. Cabeçalho Principal e Guia de Onboarding Didático
+    # -----------------------------------------------------------------------------
+    render_html(
+        """
+        <div class="hero-banner">
+            <div class="main-title">MultiTarget BioPredict</div>
+            <div class="sub-title">
+                Plataforma Computacional de Triagem Virtual Multiobjetivo e Interpretabilidade Química (RDKit + SHAP):
+                Afinidade Predita ao Receptor de Adenosina <b>A<sub>2A</sub></b> vs. Escore de Probabilidade Estimado para Bloqueio do Canal <b>hERG (K<sub>v</sub>11.1)</b>
+            </div>
+        </div>
+        """
+    )
+
+    with st.expander("📖 Guia Rápido: Como interpretar os resultados", expanded=False):
+        col_guide_bio, col_guide_xai = st.columns(2)
+        with col_guide_bio:
+            st.markdown(
+                r"""
+                #### 🧬 Alvos Biológicos & Decisão Farmacológica
+                * **🎯 Eficácia Terapêutica (Receptor $A_{2A}$):**
+                  Avalia a capacidade da molécula de inibir o receptor de adenosina $A_{2A}$,
+                  alvo farmacológico de relevância para doenças neurodegenerativas (ex: Parkinson),
+                  imuno-oncologia e modulação inflamatória.
+                  * A potência é expressa em **$pIC_{50} = -\log_{10}(IC_{50})$**.
+                  * Quanto maior o $pIC_{50}$ (ex.: $\ge 6{,}5$, correspondendo a $IC_{50} \le 316\text{ nM}$),
+                    mais potente é a molécula contra o alvo.
+                * **❤️ Segurança Cardíaca (Bloqueio do Canal hERG):**
+                  O canal de potássio cardíaco $K_v11.1$ (hERG) é essencial para a repolarização elétrica cardíaca.
+                  * O bloqueio indesejado desse canal pode prolongar o intervalo QT e induzir arritmias ventriculares graves (*Torsades de Pointes*).
+                  * O modelo estima a **Probabilidade $P(\text{hERG})$**: escores abaixo de **$30\%$** indicam perfil seguro (baixo risco),
+                    enquanto valores a partir de **$70\%$** acionam alerta vermelho de cardiotoxicidade.
+                """
+            )
+        with col_guide_xai:
+            st.markdown(
+                r"""
+                #### 🔍 Explicabilidade Química SHAP (XAI)
+                * **🧩 A IA Dissecando a Molécula em Fragmentos:**
+                  Em vez de uma caixa-preta opaca, o sistema utiliza a metodologia **SHAP** (*SHapley Additive exPlanations*)
+                  combinada a impressões digitais circulares (**ECFP4 / Morgan Fingerprints**) e descritores físico-químicos (RDKit).
+                * **⚖️ Contribuição Atômica e Balanço Aditivo:**
+                  * Cada subestrutura (fragmentos de anéis, átomos centrais, grupos funcionais) presente ou ausente
+                    recebe uma pontuação de impacto individual sobre a predição final.
+                  * **Barras Ciano/Verdes:** fragmentos que elevam a afinidade terapêutica $A_{2A}$ ou reduzem o risco $hERG$ (efeito protetor).
+                  * **Barras Vermelhas:** fragmentos que atenuam a afinidade $A_{2A}$ ou que atuam como alertas cardiotóxicos $hERG$.
+                * **🔬 Auditoria Farmacofórica Visual:**
+                  Abaixo de cada gráfico, os cartões interativos exibem a imagem 2D do microambiente atômico responsável por cada decisão.
+                """
+            )
+
+    if not models_loaded:
+        st.error(f"Erro ao carregar os modelos preditivos em `models/`: {load_error_msg}")
+        st.stop()
+
+
+    # -----------------------------------------------------------------------------
+    # 9. Resolução da Molécula Submetida (3 Modos Preservados)
+    # -----------------------------------------------------------------------------
+    active_smiles = ""
+    active_name = "Molécula Personalizada"
+    active_desc = "Estrutura molecular submetida para auditoria preditiva multiobjetivo e decomposição farmacofórica SHAP."
+
+    if input_mode == "🧪 Controles de Referência (1-Clique)":
+        st.markdown("#### 🧪 Selecione um Composto de Controle Farmacológico")
+        btn_cols = st.columns(len(REFERENCE_CONTROLS))
+        if (
+            "selected_control_key" not in st.session_state
+            or st.session_state["selected_control_key"] not in REFERENCE_CONTROLS
+        ):
+            st.session_state["selected_control_key"] = list(REFERENCE_CONTROLS.keys())[0]
+
+        for idx, (ctrl_key, ctrl_val) in enumerate(REFERENCE_CONTROLS.items()):
+            is_active = st.session_state["selected_control_key"] == ctrl_key
+            if btn_cols[idx].button(
+                ctrl_key,
+                key=f"ctrl_btn_{idx}",
+                width="stretch",
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state["selected_control_key"] = ctrl_key
+                st.rerun()
+
+        selected_ctrl = st.session_state["selected_control_key"]
+        ctrl_data = REFERENCE_CONTROLS[selected_ctrl]
+        active_smiles = ctrl_data["smiles"]
+        active_name = ctrl_data["name"]
+        active_desc = ctrl_data["desc"]
+
+    elif input_mode == "✏️ Inserir SMILES (Texto)":
+        # Mapeamento canônico dos atalhos rápidos para SMILES correspondentes
+        PRESET_SMILES_MAP = {
+            "Cafeína": REFERENCE_CONTROLS["☕ Cafeína (CHEMBL113)"]["smiles"],
+            "Istradefilina": REFERENCE_CONTROLS["💊 Istradefilina (CHEMBL431770)"]["smiles"],
+            "Terfenadina": REFERENCE_CONTROLS["⚠️ Terfenadina (CHEMBL22)"]["smiles"],
+            "Taurina": REFERENCE_CONTROLS["🌿 Taurina (Endógeno)"]["smiles"],
+            "L-Teanina": REFERENCE_CONTROLS["🍵 L-Teanina (Nutracêutico)"]["smiles"],
+        }
+
+        if "mode2_smiles_input" not in st.session_state:
+            st.session_state["mode2_smiles_input"] = ""
+
+        def _on_mode2_preset_change():
+            chosen = st.session_state.get("mode2_preset_selector")
+            if chosen in PRESET_SMILES_MAP:
+                st.session_state["mode2_smiles_input"] = PRESET_SMILES_MAP[chosen]
+
+        def _on_mode2_text_change():
+            typed = st.session_state.get("mode2_smiles_input", "").strip()
+            current_preset = st.session_state.get("mode2_preset_selector")
+            if current_preset in PRESET_SMILES_MAP:
+                if typed != PRESET_SMILES_MAP[current_preset]:
+                    st.session_state["mode2_preset_selector"] = "(Personalizado)"
+
+        col_input, col_preset = st.columns([3, 1])
+        with col_preset:
+            preset_choice = st.selectbox(
+                "Atalhos rápidos:",
+                ["(Personalizado)", "Cafeína", "Istradefilina", "Terfenadina", "Taurina", "L-Teanina"],
+                index=0,
+                key="mode2_preset_selector",
+                on_change=_on_mode2_preset_change,
+            )
+
+        with col_input:
+            user_smiles = st.text_input(
+                "Insira o código SMILES da molécula:",
+                key="mode2_smiles_input",
+                on_change=_on_mode2_text_change,
+                placeholder="Ex: CCN1C(=O)C2=C(N=C(N2C)/C=C/C3=CC(=C(C=C3)OC)OC)N(C1=O)CC",
+            )
+        active_smiles = user_smiles.strip()
+
+    elif input_mode == "🎨 Desenhar Molécula (Ketcher)":
+        try:
+            from streamlit_ketcher import st_ketcher
+
+            st.markdown("Desenhe ou edite a estrutura química no editor bidimensional abaixo e clique em **Apply**:")
+            ketcher_smiles = st_ketcher("", height=450)
+            active_smiles = ketcher_smiles.strip() if ketcher_smiles else ""
+            active_name = "Composto Desenhado (Ketcher)"
+        except Exception as e:
+            st.warning(f"Editor Ketcher indisponível ({e}). Por favor, utilize a entrada por código SMILES.")
+            active_smiles = st.text_input("SMILES:", value="", placeholder="Insira o código SMILES da molécula...")
+
+
+    # -----------------------------------------------------------------------------
+    # 10. Padronização, Featurização e Rastreamento de Bits (bitInfo RDKit)
+    # -----------------------------------------------------------------------------
+    if not active_smiles:
+        st.info("💡 Por favor, selecione um controle de referência, insira um código SMILES ou desenhe uma molécula para iniciar a análise.")
+        st.stop()
+
+    canonical_smi = canonicalize_smiles(active_smiles)
+
+    if canonical_smi is None:
+        st.error(
+            f"❌ **Estrutura Química Inválida:** O RDKit não pôde interpretar o código submetido (`{active_smiles}`). "
+            "Verifique a valência e sintaxe do código SMILES."
+        )
+        st.stop()
+
+    provenance = resolve_compound_provenance(canonical_smi)
+
+    # Consulta automatizada de identificação no PubChem (reutilizada para Ketcher e SMILES manual)
+    pubchem_info = identify_compound_pubchem(canonical_smi)
+    if pubchem_info.get("status") == "SUCCESS" and pubchem_info.get("title"):
+        if not provenance.get("is_reference_control"):
+            pub_title = pubchem_info["title"]
+            cid_num = pubchem_info.get("cid")
+            provenance["name"] = f"{pub_title} (PubChem CID {cid_num})" if cid_num else pub_title
+            if pubchem_info.get("iupac_name"):
+                provenance["desc"] = (
+                    f"Identificado automaticamente via PubChem (CID {cid_num}). "
+                    f"Nome sistemático IUPAC: {pubchem_info['iupac_name']}."
+                )
+
+    active_name = provenance["name"]
+    active_desc = provenance["desc"]
+
+    mol_obj = Chem.MolFromSmiles(canonical_smi)
+    bit_info_map = extract_morgan_bit_info(mol_obj, radius=2, n_bits=1024)
+
+    df_input = pd.DataFrame([{"canonical_smiles": canonical_smi}])
+    df_feat = featurize_dataframe(df_input, "canonical_smiles")
+    X_sample = df_feat[list(FEATURE_NAMES)]
+
+
+    # -----------------------------------------------------------------------------
+    # 11. Inferência Multiobjetivo Concorrente
+    # -----------------------------------------------------------------------------
+    pred_pIC50 = float(model_a2a.predict(X_sample)[0])
+    pred_IC50_nM = float(10 ** (9.0 - pred_pIC50))
+
+    prob_herg = float(model_herg.predict_proba(X_sample)[0, 1])
+    safety_index = 1.0 - prob_herg
+
+    if pred_pIC50 >= 6.5:
+        a2a_color_class = "semaphore-green"
+        a2a_label = "🟢 Alta Potência Operacional (pIC50 ≥ 6,5)"
+        a2a_desc = (
+            "Predição do modelo na faixa operacional de alta potência (pIC50 ≥ 6,5). "
+            "Verifique a proveniência experimental e o domínio de aplicabilidade antes de inferir atividade biológica."
+        )
+    elif pred_pIC50 >= 5.0:
+        a2a_color_class = "semaphore-yellow"
+        a2a_label = "🟡 Potência Moderada Operacional (5,0 ≤ pIC50 < 6,5)"
+        a2a_desc = (
+            "Predição do modelo na faixa operacional micromolar moderada (5,0 ≤ pIC50 < 6,5). "
+            "Compare com a medição experimental no dataset quando disponível."
+        )
+    else:
+        a2a_color_class = "semaphore-red"
+        a2a_label = "🔴 Baixa Potência / Inativo Operacional (pIC50 < 5,0)"
+        a2a_desc = "Predição do modelo abaixo do limiar operacional micromolar (pIC50 < 5,0)."
+
+    # [Função canônica transferida para a fachada pública: classify_herg_operational_risk]
+
+
+    herg_operational = classify_herg_operational_risk(prob_herg)
+    herg_color_class = herg_operational["color_class"]
+    herg_label = herg_operational["label"]
+    herg_desc = herg_operational["desc"]
+
+    render_html(build_control_provenance_html(provenance, pred_pIC50, prob_herg))
+
+    # Cartão de Identificação Automatizada via PubChem (reutilizado para Ketcher e SMILES manual)
+    pubchem_card_html = build_pubchem_card_html(pubchem_info)
+    if pubchem_card_html:
+        render_html(pubchem_card_html)
+
+
+    # -----------------------------------------------------------------------------
+    # 12. Painel de Decisão Multiobjetivo (Cartões Estilizados metric-card)
+    # -----------------------------------------------------------------------------
+    st.subheader("🎯 Painel de Decisão Multiobjetivo")
+
+    col_mol, col_sem1, col_sem2 = st.columns([1.15, 1.42, 1.42])
+
+    with col_mol:
+        mol_b64 = render_molecule_dark_base64(mol_obj, size=(420, 250))
+        if mol_b64:
+            mol_img_html = (
+                f'<div class="mol-canvas-frame">'
+                f'<img src="data:image/png;base64,{mol_b64}" style="max-width:100%; height:180px; object-fit:contain; border-radius:8px;"/>'
+                f'</div>'
+            )
+        else:
+            mol_img_html = '<div style="color:#94A3B8;">Imagem não disponível</div>'
+
+        render_html(
+            f"""
+            <div class="metric-card">
+                <div class="card-header-title">
+                    <span>🧪 Estrutura 2D Padronizada (RDKit)</span>
+                    <span style="font-size:0.78rem; color:#00D2BE; font-weight:600;">{len(bit_info_map)} bits ativos</span>
+                </div>
+                {mol_img_html}
+                <div class="smiles-box" title="SMILES Canônico Isomérico">{canonical_smi}</div>
+            </div>
+            """
+        )
+
+    with col_sem1:
+        ic50_str = f"{pred_IC50_nM:.1f} nM" if pred_IC50_nM < 1000 else f"{pred_IC50_nM / 1000:.2f} µM"
+        gauge_val_pct = int(np.clip((pred_pIC50 - 4.0) / (10.0 - 4.0), 0.0, 1.0) * 100)
+        a2a_sample_badge_cls = "insample-badge" if provenance["a2a_in_sample"] else "outsample-badge"
+        a2a_sample_icon = "📌" if provenance["a2a_in_sample"] else "🔬"
+        exp_kpi_str = (
+            f"{provenance['a2a_exp_pic50']:.2f} (ChEMBL)"
+            if provenance["a2a_exp_pic50"] is not None
+            else "Ausente (Out-of-Sample)"
+        )
+
+        render_html(
+            f"""
+            <div class="metric-card">
+                <div class="card-header-title">
+                    <span>1. Potência no Receptor A<sub>2A</sub></span>
+                    <span style="font-size:0.78rem; color:#94A3B8;" title="Modelo de regressão supervisionada XGBoost treinado em pIC50">Regressão XGBoost ℹ️</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.75rem;">
+                    <span class="{a2a_color_class}">{a2a_label}</span>
+                    <span class="{a2a_sample_badge_cls}">{a2a_sample_icon} {provenance["a2a_sample_status"]}</span>
+                </div>
+                <div class="kpi-grid">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Potência Predita (pIC50)</div>
+                        <div class="kpi-value kpi-value-accent">{pred_pIC50:.2f}</div>
+                        <div style="font-size:0.75rem; color:#94A3B8;">IC50 predito: {ic50_str}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Medição no Dataset (pIC50 exp.)</div>
+                        <div class="kpi-value" style="font-size:1.22rem;">{exp_kpi_str}</div>
+                        <div style="font-size:0.75rem; color:#94A3B8;">ID: {provenance["chembl_id"]}</div>
+                    </div>
+                </div>
+                <div style="background:#141820; border-radius:999px; height:10px; width:100%; overflow:hidden; margin:0.65rem 0;">
+                    <div style="background:linear-gradient(90deg, #00D2BE, #38BDF8); width:{gauge_val_pct}%; height:100%; border-radius:999px;"></div>
+                </div>
+                <p class="pharm-desc-text" style="font-size:0.84rem; color:#CBD5E1; margin-top:0.45rem;">
+                    <strong>Interpretação Operacional:</strong> {a2a_desc}
+                </p>
+            </div>
+            """
+        )
+
+    with col_sem2:
+        herg_bar_pct = int(np.clip(prob_herg * 100, 0, 100))
+        herg_bar_color = "#00D2BE" if prob_herg < 0.30 else ("#F59E0B" if prob_herg < 0.70 else "#FF4B4B")
+        herg_sample_badge_cls = "insample-badge" if provenance["herg_in_sample"] else "outsample-badge"
+        herg_sample_icon = "📌" if provenance["herg_in_sample"] else "🔬"
+
+        render_html(
+            f"""
+            <div class="metric-card">
+                <div class="card-header-title">
+                    <span>2. Triagem de Segurança hERG (K<sub>v</sub>11.1)</span>
+                    <span style="font-size:0.78rem; color:#94A3B8;" title="Classificador Random Forest treinado em bioensaios de inibição de potássio">Classificador RF ℹ️</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.75rem;">
+                    <span class="{herg_color_class}">{herg_label}</span>
+                    <span class="{herg_sample_badge_cls}">{herg_sample_icon} {provenance["herg_sample_status"]}</span>
+                </div>
+                <div class="kpi-grid">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Escore Estimado P(hERG)</div>
+                        <div class="kpi-value" style="color:{herg_bar_color};">{prob_herg:.1%}</div>
+                        <div style="font-size:0.75rem; color:#94A3B8;" title="Estimativa estatística de inibição do canal">Probabilidade de bloqueio ℹ️</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Índice Complementar (1 - P_hERG)</div>
+                        <div class="kpi-value kpi-value-accent">{safety_index:.1%}</div>
+                        <div style="font-size:0.75rem; color:#94A3B8;" title="Margem de segurança relativa derivada do escore">Margem de segurança ℹ️</div>
+                    </div>
+                </div>
+                <div style="background:#141820; border-radius:999px; height:10px; width:100%; overflow:hidden; margin:0.65rem 0;">
+                    <div style="background:{herg_bar_color}; width:{herg_bar_pct}%; height:100%; border-radius:999px;"></div>
+                </div>
+                <p class="pharm-desc-text" style="font-size:0.84rem; color:#CBD5E1; margin-top:0.45rem;">
+                    <strong>Interpretação Operacional:</strong> {herg_desc}
+                </p>
+            </div>
+            """
+        )
+
+
+    # -----------------------------------------------------------------------------
+    # 13. Propriedades Físico-Químicas 2D & Regra de Lipinski (Cartões Estilizados)
+    # -----------------------------------------------------------------------------
+    desc_dict = compute_2d_descriptors(mol_obj)
+    mol_wt = desc_dict["MolWt"]
+    mol_logp = desc_dict["MolLogP"]
+    tpsa = desc_dict["TPSA"]
+    hbd = desc_dict["NumHDonors"]
+    hba = desc_dict["NumHAcceptors"]
+    rot_bonds = desc_dict["NumRotatableBonds"]
+
+    lipinski_violations = sum([
+        mol_wt > 500,
+        mol_logp > 5.0,
+        hbd > 5,
+        hba > 10,
+    ])
+
+    with st.expander("📋 Propriedades Físico-Químicas 2D e Auditoria de Drogabilidade (Regra de Lipinski)", expanded=False):
+        lip_badge = (
+            '<span class="semaphore-green" style="font-size:0.88rem; padding:0.3rem 0.85rem;">✅ 0 Violações — Alta Drogabilidade Oral</span>'
+            if lipinski_violations == 0
+            else f'<span class="semaphore-yellow" style="font-size:0.88rem; padding:0.3rem 0.85rem;">⚠️ {lipinski_violations} Violação(ões) da Regra dos Cinco de Lipinski</span>'
+        )
+        render_html(
+            f"""
+            <div class="metric-card" style="margin-bottom:0.4rem;">
+                <div class="card-header-title">
+                    <span>Parâmetros Físico-Químicos Calculados (RDKit 2D)</span>
+                    {lip_badge}
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; margin-top:0.5rem;">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Massa (MolWt)</div>
+                        <div class="kpi-value" style="font-size:1.25rem;">{mol_wt:.1f} <span style="font-size:0.8rem; color:#94A3B8;">Da</span></div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Lipofilicidade (LogP)</div>
+                        <div class="kpi-value" style="font-size:1.25rem; color:#00D2BE;">{mol_logp:.2f}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Área Polar (TPSA)</div>
+                        <div class="kpi-value" style="font-size:1.25rem;">{tpsa:.1f} <span style="font-size:0.8rem; color:#94A3B8;">Å²</span></div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Doadores H (HBD)</div>
+                        <div class="kpi-value" style="font-size:1.25rem;">{hbd}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Aceptores H (HBA)</div>
+                        <div class="kpi-value" style="font-size:1.25rem;">{hba}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Lig. Rotacionáveis</div>
+                        <div class="kpi-value" style="font-size:1.25rem;">{rot_bonds}</div>
+                    </div>
+                </div>
+            </div>
+            """
+        )
+
+
+    # -----------------------------------------------------------------------------
+    # 14. Matriz Multiobjetivo 2D de Decisão Farmacológica (Alto Contraste Dark Mode)
+    # -----------------------------------------------------------------------------
+    # [Função canônica transferida para a fachada pública: build_multiobjective_figure]
+
+
+    # [Função canônica transferida para a fachada pública: classify_herg_safety_axis]
+
+
+    # [Função canônica transferida para a fachada pública: classify_multiobjective_quadrant]
+
+
+    st.subheader("🗺️ Matriz de Decisão Multiobjetivo (Potência Predita A2A × Margem 1 - P_hERG)")
+
+    x_cur = pred_pIC50
+    y_cur = safety_index
+
     fig_mat, ax_mat = build_multiobjective_figure(x_cur, y_cur, active_name)
-    st.pyplot(fig_mat)
+    st.pyplot(fig_mat, width="stretch")
     plt.close(fig_mat)
 
-with col_quad_desc:
     quad_info = classify_multiobjective_quadrant(x_cur, y_cur)
     quad_badge_cls = quad_info["quad_badge_cls"]
     quad_title = quad_info["quad_title"]
@@ -2185,24 +1979,28 @@ with col_quad_desc:
 
     render_html(
         f"""
-        <div class="metric-card" style="height:100%;">
-            <div class="card-header-title">
-                <span>🧭 Diagnóstico Operacional de Posicionamento</span>
+        <div class="metric-card" style="margin-top:0.75rem;">
+            <div class="card-header-title" style="margin-bottom:0.6rem;">
+                <span>🧭 Diagnóstico Operacional de Posicionamento Farmacológico</span>
+                <span class="{quad_badge_cls}" style="font-size:0.90rem;">{quad_title}</span>
             </div>
-            <div style="margin-bottom:0.85rem;">
-                <span class="{quad_badge_cls}" style="font-size:0.9rem;">{quad_title}</span>
-            </div>
-            <p class="pharm-desc-text" style="margin-bottom:1rem;">{quad_text}</p>
-            <div class="kpi-box" style="margin-bottom:0.6rem;">
-                <div class="kpi-label">Eixo Horizontal (X) — Potência Predita A2A</div>
-                <div style="color:#FFFFFF; font-size:0.9rem;">
-                    <b>pIC50 predito = {x_cur:.2f}</b> (Classes operacionais: &lt; 5,0 | 5,0–6,5 | ≥ 6,5)
+            <p class="pharm-desc-text" style="font-size:0.92rem; margin-bottom:0.85rem; line-height:1.5;">
+                {quad_text}
+            </p>
+            <div class="kpi-grid">
+                <div class="kpi-box">
+                    <div class="kpi-label">Eixo Horizontal (X) — Potência Predita A2A</div>
+                    <div style="color:#FFFFFF; font-size:0.95rem; margin-top:0.2rem;">
+                        <b>pIC50 predito = {x_cur:.2f}</b> ({ic50_str}) &nbsp;•&nbsp; 
+                        <span style="color:#94A3B8; font-size:0.82rem;">Faixas: Inativo (&lt; 5,0) | Moderado (5,0–6,5) | Alta Potência (≥ 6,5)</span>
+                    </div>
                 </div>
-            </div>
-            <div class="kpi-box">
-                <div class="kpi-label">Eixo Vertical (Y) — Índice Complementar Derivado</div>
-                <div style="color:#FFFFFF; font-size:0.9rem;">
-                    <b>1 - P(hERG) = {y_cur:.1%}</b> (Escore P_hERG = {prob_herg:.1%} | Baixo risco operacional: P &lt; 0,30)
+                <div class="kpi-box">
+                    <div class="kpi-label">Eixo Vertical (Y) — Margem de Segurança Derivada</div>
+                    <div style="color:#FFFFFF; font-size:0.95rem; margin-top:0.2rem;">
+                        <b>1 - P(hERG) = {y_cur:.1%}</b> (Escore hERG = {prob_herg:.1%}) &nbsp;•&nbsp; 
+                        <span style="color:#94A3B8; font-size:0.82rem;">Faixas: Alto Risco (P ≥ 70%) | Moderado (30%–70%) | Baixo Risco (P &lt; 30%)</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2210,221 +2008,334 @@ with col_quad_desc:
     )
 
 
+    # -----------------------------------------------------------------------------
+    # 15. Aviso de Amostragem do SHAP (Top 10) & Seção de Explicabilidade Química
+    # -----------------------------------------------------------------------------
+    st.markdown("---")
+    st.subheader("🔍 Interpretabilidade Química e Farmacofórica Local (XAI — SHAP & RDKit)")
+
+    render_html(
+        """
+        <div class="xai-audit-banner">
+            <strong>Auditoria Local de Atributos (XAI):</strong> Exibindo exclusivamente os
+            <strong>10 principais atributos (Top 10)</strong> com maior peso absoluto de decisão nesta predição.
+            As demais 1.020 dimensões de Morgan Fingerprint (ECFP4) e descritores secundários possuem
+            contribuição residual para este composto específico.
+        </div>
+        """
+    )
+
+    tab_shap_a2a, tab_shap_herg = st.tabs([
+        "🎯 Farmacóforos e Descritores da Potência A2A",
+        "❤️ Alertas Estruturais e Descritores do Risco hERG",
+    ])
+
+
+    # -----------------------------------------------------------------------------
+    # Aba 1: Explicabilidade Química A2A
+    # -----------------------------------------------------------------------------
+    with tab_shap_a2a:
+        with st.spinner("Mapeando contribuições farmacofóricas locais (SHAP + RDKit bitInfo) para A2A..."):
+            sv_a2a = explainer_a2a(X_sample)
+            vals_a2a = sv_a2a.values[0]
+            base_a2a = float(sv_a2a.base_values[0])
+
+            top_idx_a2a = np.argsort(np.abs(vals_a2a))[::-1][:10]
+            top_names_a2a = [FEATURE_NAMES[i] for i in top_idx_a2a]
+            top_impacts_a2a = [float(vals_a2a[i]) for i in top_idx_a2a]
+            top_mol_vals_a2a = [float(X_sample.iloc[0, i]) for i in top_idx_a2a]
+
+            st.info("Auditoria Local de Atributos: Exibindo exclusivamente os 10 principais atributos (Top 10) de maior impacto nesta predição.")
+
+            fig_sa, ax_sa = plt.subplots(figsize=(10.5, 4.6), facecolor="#0E1117")
+            ax_sa.set_facecolor("#1E222D")
+            bar_colors_a2a = ["#00D2BE" if imp >= 0 else "#FF4B4B" for imp in top_impacts_a2a]
+
+            y_pos = np.arange(len(top_names_a2a))
+            ax_sa.barh(y_pos, top_impacts_a2a, color=bar_colors_a2a, edgecolor="#FFFFFF", linewidth=0.6, alpha=0.92)
+            ax_sa.set_yticks(y_pos)
+            ax_sa.set_yticklabels(top_names_a2a, fontsize=10, fontweight="bold", color="#FFFFFF")
+            ax_sa.invert_yaxis()
+            ax_sa.axvline(0, color="#CBD5E1", linestyle="-", linewidth=1.1)
+            ax_sa.set_xlabel(
+                "Impacto SHAP no pIC50 (Ciano = Aumenta Afinidade A2A | Vermelho = Atenua Afinidade)",
+                fontsize=9.5,
+                fontweight="bold",
+                color="#FFFFFF",
+            )
+            ax_sa.set_title(
+                f"Decomposição Aditiva SHAP — Top 10 Atributos para A2A (Linha de Base = {base_a2a:.2f} → Predito = {pred_pIC50:.2f})",
+                fontsize=11,
+                fontweight="bold",
+                color="#FFFFFF",
+            )
+            ax_sa.tick_params(colors="#E2E8F0", labelsize=9)
+            for spine in ax_sa.spines.values():
+                spine.set_color("#475569")
+            ax_sa.grid(axis="x", linestyle=":", alpha=0.35, color="#64748B")
+            plt.tight_layout()
+            st.pyplot(fig_sa, width="stretch")
+            plt.close(fig_sa)
+
+            st.markdown("#### 🧩 Grade Visual de Farmacóforos e Descritores Decisivos (Receptor $A_{2A}$)")
+            st.caption(
+                "Os fragmentos moleculares abaixo são extraídos diretamente da molécula em análise via `bitInfo` do RDKit "
+                "com microambiente 2D em Dark Mode (destaque ciano = átomo central do bit; âmbar = átomos aromáticos do ambiente circular ECFP4)."
+            )
+
+            for row_start in range(0, len(top_names_a2a), 2):
+                grid_cols = st.columns(2)
+                for col_offset in range(2):
+                    item_idx = row_start + col_offset
+                    if item_idx < len(top_names_a2a):
+                        card_html = build_pharmacophore_card_html(
+                            feature_name=top_names_a2a[item_idx],
+                            mol_value=top_mol_vals_a2a[item_idx],
+                            shap_impact=top_impacts_a2a[item_idx],
+                            mol=mol_obj,
+                            bit_info=bit_info_map,
+                            target="A2A",
+                        )
+                        with grid_cols[col_offset]:
+                            st.markdown(card_html, unsafe_allow_html=True)
+
+
+    # -----------------------------------------------------------------------------
+    # Aba 2: Explicabilidade Química hERG
+    # -----------------------------------------------------------------------------
+    with tab_shap_herg:
+        with st.spinner("Mapeando alertas estruturais e descritores locais (SHAP + RDKit bitInfo) para hERG..."):
+            sv_herg = explainer_herg(X_sample)
+            vals_herg = sv_herg.values[0, :, 1]
+            base_herg = float(sv_herg.base_values[0, 1])
+
+            top_idx_herg = np.argsort(np.abs(vals_herg))[::-1][:10]
+            top_names_herg = [FEATURE_NAMES[i] for i in top_idx_herg]
+            top_impacts_herg = [float(vals_herg[i]) for i in top_idx_herg]
+            top_mol_vals_herg = [float(X_sample.iloc[0, i]) for i in top_idx_herg]
+
+            st.info("Auditoria Local de Atributos: Exibindo exclusivamente os 10 principais atributos (Top 10) de maior impacto nesta predição.")
+
+            fig_sh, ax_sh = plt.subplots(figsize=(10.5, 4.6), facecolor="#0E1117")
+            ax_sh.set_facecolor("#1E222D")
+            bar_colors_herg = ["#FF4B4B" if imp >= 0 else "#00D2BE" for imp in top_impacts_herg]
+
+            y_pos = np.arange(len(top_names_herg))
+            ax_sh.barh(y_pos, top_impacts_herg, color=bar_colors_herg, edgecolor="#FFFFFF", linewidth=0.6, alpha=0.92)
+            ax_sh.set_yticks(y_pos)
+            ax_sh.set_yticklabels(top_names_herg, fontsize=10, fontweight="bold", color="#FFFFFF")
+            ax_sh.invert_yaxis()
+            ax_sh.axvline(0, color="#CBD5E1", linestyle="-", linewidth=1.1)
+            ax_sh.set_xlabel(
+                "Impacto SHAP em P(hERG) (Vermelho = Aumenta Risco Cardiotóxico | Ciano = Efeito Protetor)",
+                fontsize=9.5,
+                fontweight="bold",
+                color="#FFFFFF",
+            )
+            ax_sh.set_title(
+                f"Decomposição Aditiva SHAP — Top 10 Atributos para Risco hERG (Base = {base_herg:.1%} → Predito = {prob_herg:.1%})",
+                fontsize=11,
+                fontweight="bold",
+                color="#FFFFFF",
+            )
+            ax_sh.tick_params(colors="#E2E8F0", labelsize=9)
+            for spine in ax_sh.spines.values():
+                spine.set_color("#475569")
+            ax_sh.grid(axis="x", linestyle=":", alpha=0.35, color="#64748B")
+            plt.tight_layout()
+            st.pyplot(fig_sh, width="stretch")
+            plt.close(fig_sh)
+
+            st.markdown("#### 🧩 Grade Visual de Alertas Estruturais e Descritores Decisivos (Canal hERG)")
+            st.caption(
+                "Avaliação mecanística de subestruturas lipofílicas, centros básicos protonáveis e descritores de "
+                "superfície polar sobre a probabilidade de oclusão do canal de potássio Kv11.1."
+            )
+
+            for row_start in range(0, len(top_names_herg), 2):
+                grid_cols = st.columns(2)
+                for col_offset in range(2):
+                    item_idx = row_start + col_offset
+                    if item_idx < len(top_names_herg):
+                        card_html = build_pharmacophore_card_html(
+                            feature_name=top_names_herg[item_idx],
+                            mol_value=top_mol_vals_herg[item_idx],
+                            shap_impact=top_impacts_herg[item_idx],
+                            mol=mol_obj,
+                            bit_info=bit_info_map,
+                            target="hERG",
+                        )
+                        with grid_cols[col_offset]:
+                            st.markdown(card_html, unsafe_allow_html=True)
+
+
+    # -----------------------------------------------------------------------------
+    # 16. Diagnóstico de Cobertura Estrutural (Domínio de Aplicabilidade)
+    # -----------------------------------------------------------------------------
+    st.markdown("---")
+    st.subheader("🧭 Diagnóstico de Cobertura Estrutural (Domínio de Aplicabilidade)")
+
+    try:
+        ref_a2a = load_ad_reference_cached("A2A")
+        diag_a2a = compute_ad_diagnostics(mol_obj, "A2A", reference=ref_a2a)
+    except Exception as exc:
+        diag_a2a = {
+            "status": "technical_error",
+            "endpoint": "A2A",
+            "error_message": f"Não foi possível calcular o diagnóstico: {exc}",
+        }
+
+    try:
+        ref_herg = load_ad_reference_cached("hERG")
+        diag_herg = compute_ad_diagnostics(mol_obj, "hERG", reference=ref_herg)
+    except Exception as exc:
+        diag_herg = {
+            "status": "technical_error",
+            "endpoint": "hERG",
+            "error_message": f"Não foi possível calcular o diagnóstico: {exc}",
+        }
+
+    render_html(build_ad_section_html(diag_a2a, diag_herg))
+
+
+    # -----------------------------------------------------------------------------
+    # 17. Rodapé e Governança Técnica
+    # -----------------------------------------------------------------------------
+    st.markdown("---")
+    footer_c1, footer_c2 = st.columns([2, 1])
+    footer_c1.caption(
+        "**MultiTarget BioPredict** — Plataforma Acadêmica de Triagem Virtual Multiobjetivo. "
+        "Desenvolvido por Raphael Pires. Licença MIT. RDKit · scikit-learn · XGBoost · SHAP · Streamlit."
+    )
+    footer_c2.caption(
+        "Ambiente 100% Local · Restrições de 8 GB RAM respeitadas · Sem dependência de nuvem."
+    )
+
+
 # -----------------------------------------------------------------------------
-# 15. Aviso de Amostragem do SHAP (Top 10) & Seção de Explicabilidade Química
+# 8. Módulos e Páginas Provisórias da Navegação (Streamlit 1.65.0)
 # -----------------------------------------------------------------------------
-st.markdown("---")
-st.subheader("🔍 Interpretabilidade Química e Farmacofórica Local (XAI — SHAP & RDKit)")
+from src.ui.components import render_provisional_page
 
-render_html(
-    """
-    <div class="xai-audit-banner">
-        <strong>Auditoria Local de Atributos (XAI):</strong> Exibindo exclusivamente os
-        <strong>10 principais atributos (Top 10)</strong> com maior peso absoluto de decisão nesta predição.
-        As demais 1.020 dimensões de Morgan Fingerprint (ECFP4) e descritores secundários possuem
-        contribuição residual para este composto específico.
-    </div>
-    """
-)
+def page_visao_geral() -> None:
+    render_provisional_page(
+        page_name="Visão Geral",
+        scheduled_stage="Etapa de Implementação 5",
+        description="Apresentação do escopo científico, pipeline em 4 etapas, estado operacional dos modelos e fluxo de trabalho multiobjetivo.",
+        icon="🏠",
+    )
 
-tab_shap_a2a, tab_shap_herg = st.tabs([
-    "🎯 Farmacóforos e Descritores da Potência A2A",
-    "❤️ Alertas Estruturais e Descritores do Risco hERG",
-])
+def page_nova_analise() -> None:
+    from src.ui.pages.p2_nova_analise import render_nova_analise
 
-
-# -----------------------------------------------------------------------------
-# Aba 1: Explicabilidade Química A2A
-# -----------------------------------------------------------------------------
-with tab_shap_a2a:
-    with st.spinner("Mapeando contribuições farmacofóricas locais (SHAP + RDKit bitInfo) para A2A..."):
-        sv_a2a = explainer_a2a(X_sample)
-        vals_a2a = sv_a2a.values[0]
-        base_a2a = float(sv_a2a.base_values[0])
-
-        top_idx_a2a = np.argsort(np.abs(vals_a2a))[::-1][:10]
-        top_names_a2a = [FEATURE_NAMES[i] for i in top_idx_a2a]
-        top_impacts_a2a = [float(vals_a2a[i]) for i in top_idx_a2a]
-        top_mol_vals_a2a = [float(X_sample.iloc[0, i]) for i in top_idx_a2a]
-
-        labels_a2a = []
-        for n, v in zip(top_names_a2a, top_mol_vals_a2a):
-            det = resolve_pharmacophore_details(n, mol_obj, bit_info_map, target="A2A")
-            short_lbl = det["label"][:38] + ("…" if len(det["label"]) > 38 else "")
-            if n in DESCRIPTOR_NAMES:
-                labels_a2a.append(f"{n} ({short_lbl}) = {v:.2f}")
-            else:
-                state_str = "Presente" if int(round(v)) == 1 else "Ausente"
-                labels_a2a.append(f"{n} · {short_lbl} [{state_str}]")
-
-        fig_sa, ax_sa = plt.subplots(figsize=(10.2, 4.6), facecolor="#0E1117")
-        ax_sa.set_facecolor("#1E222D")
-        bar_colors_a2a = ["#00D2BE" if imp >= 0 else "#FF4B4B" for imp in top_impacts_a2a]
-
-        y_pos = np.arange(len(top_names_a2a))
-        ax_sa.barh(y_pos, top_impacts_a2a, color=bar_colors_a2a, edgecolor="#FFFFFF", linewidth=0.6, alpha=0.92)
-        ax_sa.set_yticks(y_pos)
-        ax_sa.set_yticklabels(labels_a2a, fontsize=9, fontweight="bold", color="#FFFFFF")
-        ax_sa.invert_yaxis()
-        ax_sa.axvline(0, color="#CBD5E1", linestyle="-", linewidth=1.1)
-        ax_sa.set_xlabel(
-            "Impacto SHAP no pIC50 (Ciano/Verde = Aumenta Afinidade A2A | Vermelho = Atenua Afinidade)",
-            fontsize=9.5,
-            fontweight="bold",
-            color="#FFFFFF",
-        )
-        ax_sa.set_title(
-            f"Decomposição Aditiva SHAP — Top 10 Atributos para A2A (Linha de Base = {base_a2a:.2f} → Predito = {pred_pIC50:.2f})",
-            fontsize=11,
-            fontweight="bold",
-            color="#FFFFFF",
-        )
-        ax_sa.tick_params(colors="#E2E8F0", labelsize=9)
-        for spine in ax_sa.spines.values():
-            spine.set_color("#475569")
-        ax_sa.grid(axis="x", linestyle=":", alpha=0.35, color="#64748B")
-        plt.tight_layout()
-        st.pyplot(fig_sa)
-        plt.close(fig_sa)
-
-        st.markdown("#### 🧩 Grade Visual de Farmacóforos e Descritores Decisivos (Receptor $A_{2A}$)")
-        st.caption(
-            "Os fragmentos moleculares abaixo são extraídos diretamente da molécula em análise via `bitInfo` do RDKit "
-            "com fundo transparente Dark Mode (destaque ciano = átomo central do bit; âmbar = átomos aromáticos do ambiente circular ECFP4)."
-        )
-
-        for row_start in range(0, len(top_names_a2a), 2):
-            grid_cols = st.columns(2)
-            for col_offset in range(2):
-                item_idx = row_start + col_offset
-                if item_idx < len(top_names_a2a):
-                    card_html = build_pharmacophore_card_html(
-                        feature_name=top_names_a2a[item_idx],
-                        mol_value=top_mol_vals_a2a[item_idx],
-                        shap_impact=top_impacts_a2a[item_idx],
-                        mol=mol_obj,
-                        bit_info=bit_info_map,
-                        target="A2A",
-                    )
-                    with grid_cols[col_offset]:
-                        st.markdown(card_html, unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
-# Aba 2: Explicabilidade Química hERG
-# -----------------------------------------------------------------------------
-with tab_shap_herg:
-    with st.spinner("Mapeando alertas estruturais e descritores locais (SHAP + RDKit bitInfo) para hERG..."):
-        sv_herg = explainer_herg(X_sample)
-        vals_herg = sv_herg.values[0, :, 1]
-        base_herg = float(sv_herg.base_values[0, 1])
-
-        top_idx_herg = np.argsort(np.abs(vals_herg))[::-1][:10]
-        top_names_herg = [FEATURE_NAMES[i] for i in top_idx_herg]
-        top_impacts_herg = [float(vals_herg[i]) for i in top_idx_herg]
-        top_mol_vals_herg = [float(X_sample.iloc[0, i]) for i in top_idx_herg]
-
-        labels_herg = []
-        for n, v in zip(top_names_herg, top_mol_vals_herg):
-            det = resolve_pharmacophore_details(n, mol_obj, bit_info_map, target="hERG")
-            short_lbl = det["label"][:38] + ("…" if len(det["label"]) > 38 else "")
-            if n in DESCRIPTOR_NAMES:
-                labels_herg.append(f"{n} ({short_lbl}) = {v:.2f}")
-            else:
-                state_str = "Presente" if int(round(v)) == 1 else "Ausente"
-                labels_herg.append(f"{n} · {short_lbl} [{state_str}]")
-
-        fig_sh, ax_sh = plt.subplots(figsize=(10.2, 4.6), facecolor="#0E1117")
-        ax_sh.set_facecolor("#1E222D")
-        bar_colors_herg = ["#FF4B4B" if imp >= 0 else "#00D2BE" for imp in top_impacts_herg]
-
-        y_pos = np.arange(len(top_names_herg))
-        ax_sh.barh(y_pos, top_impacts_herg, color=bar_colors_herg, edgecolor="#FFFFFF", linewidth=0.6, alpha=0.92)
-        ax_sh.set_yticks(y_pos)
-        ax_sh.set_yticklabels(labels_herg, fontsize=9, fontweight="bold", color="#FFFFFF")
-        ax_sh.invert_yaxis()
-        ax_sh.axvline(0, color="#CBD5E1", linestyle="-", linewidth=1.1)
-        ax_sh.set_xlabel(
-            "Impacto SHAP em P(hERG) (Vermelho = Aumenta Risco Cardiotóxico | Ciano/Verde = Efeito Protetor)",
-            fontsize=9.5,
-            fontweight="bold",
-            color="#FFFFFF",
-        )
-        ax_sh.set_title(
-            f"Decomposição Aditiva SHAP — Top 10 Atributos para Risco hERG (Base = {base_herg:.1%} → Predito = {prob_herg:.1%})",
-            fontsize=11,
-            fontweight="bold",
-            color="#FFFFFF",
-        )
-        ax_sh.tick_params(colors="#E2E8F0", labelsize=9)
-        for spine in ax_sh.spines.values():
-            spine.set_color("#475569")
-        ax_sh.grid(axis="x", linestyle=":", alpha=0.35, color="#64748B")
-        plt.tight_layout()
-        st.pyplot(fig_sh)
-        plt.close(fig_sh)
-
-        st.markdown("#### 🧩 Grade Visual de Alertas Estruturais e Descritores Decisivos (Canal hERG)")
-        st.caption(
-            "Avaliação mecanística de subestruturas lipofílicas, centros básicos protonáveis e descritores de "
-            "superfície polar sobre a probabilidade de oclusão do canal de potássio Kv11.1."
-        )
-
-        for row_start in range(0, len(top_names_herg), 2):
-            grid_cols = st.columns(2)
-            for col_offset in range(2):
-                item_idx = row_start + col_offset
-                if item_idx < len(top_names_herg):
-                    card_html = build_pharmacophore_card_html(
-                        feature_name=top_names_herg[item_idx],
-                        mol_value=top_mol_vals_herg[item_idx],
-                        shap_impact=top_impacts_herg[item_idx],
-                        mol=mol_obj,
-                        bit_info=bit_info_map,
-                        target="hERG",
-                    )
-                    with grid_cols[col_offset]:
-                        st.markdown(card_html, unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
-# 16. Diagnóstico de Cobertura Estrutural (Domínio de Aplicabilidade)
-# -----------------------------------------------------------------------------
-st.markdown("---")
-st.subheader("🧭 Diagnóstico de Cobertura Estrutural (Domínio de Aplicabilidade)")
-
-try:
-    ref_a2a = load_ad_reference_cached("A2A")
-    diag_a2a = compute_ad_diagnostics(mol_obj, "A2A", reference=ref_a2a)
-except Exception as exc:
-    diag_a2a = {
-        "status": "technical_error",
-        "endpoint": "A2A",
-        "error_message": f"Não foi possível calcular o diagnóstico: {exc}",
+    models_bundle = {
+        "model_a2a": model_a2a,
+        "model_herg": model_herg,
+        "meta_a2a": meta_a2a,
+        "meta_herg": meta_herg,
+        "explainer_a2a": explainer_a2a,
+        "explainer_herg": explainer_herg,
+        "load_ad_reference": load_ad_reference_cached,
+        "resolve_provenance": resolve_compound_provenance,
+        "classify_herg": classify_herg_operational_risk,
+        "classify_quadrant": classify_multiobjective_quadrant,
     }
+    render_nova_analise(models_bundle=models_bundle)
 
-try:
-    ref_herg = load_ad_reference_cached("hERG")
-    diag_herg = compute_ad_diagnostics(mol_obj, "hERG", reference=ref_herg)
-except Exception as exc:
-    diag_herg = {
-        "status": "technical_error",
-        "endpoint": "hERG",
-        "error_message": f"Não foi possível calcular o diagnóstico: {exc}",
-    }
+    with st.expander("🔬 Modo de Transição: Acessar Execução Funcional Legada", expanded=False):
+        if st.checkbox("Habilitar visualização legada completa (requer inferência adicional)", value=False, key="chk_enable_legacy_view"):
+            render_legacy_analysis_view()
+        else:
+            st.info("A interface legada está em repouso para economizar processamento e evitar execuções redundantes de SHAP. Marque a opção acima para visualizá-la.")
 
-render_html(build_ad_section_html(diag_a2a, diag_herg))
+def page_resultados() -> None:
+    from src.ui.pages.p3_resultados import render_resultados
+    render_resultados()
+
+def page_interpretacao() -> None:
+    from src.ui.pages.p4_interpretacao import render_interpretacao
+    render_interpretacao()
+
+def page_comparacao() -> None:
+    from src.ui.pages.p5_comparacao import render_comparacao
+    render_comparacao()
+
+def page_como_utilizar() -> None:
+    from src.ui.pages.p6_como_utilizar import render_como_utilizar
+    render_como_utilizar()
+
+def page_fundamentos() -> None:
+    render_provisional_page(
+        page_name="Fundamentos Científicos",
+        scheduled_stage="Etapa de Implementação 5",
+        description="Embasamento teórico sobre quimioinformática RDKit, representações Morgan/ECFP4, modelagem supervisionada e formulação SHAP.",
+        icon="🔬",
+    )
+
+def page_governanca() -> None:
+    render_provisional_page(
+        page_name="Modelos e Governança",
+        scheduled_stage="Etapa de Implementação 5",
+        description="Transparência de métricas de treino/holdout, dados de refit 100%, advertência de escores não calibrados e escopo de aplicabilidade.",
+        icon="⚖️",
+    )
+
+def page_sobre() -> None:
+    render_provisional_page(
+        page_name="Sobre o Projeto",
+        scheduled_stage="Etapa de Implementação 5",
+        description="Créditos acadêmicos, termos de licenciamento MIT, ambiente local de execução e disclaimer de uso para pesquisa.",
+        icon="ℹ️",
+    )
 
 
 # -----------------------------------------------------------------------------
-# 17. Rodapé e Governança Técnica
+# 9. Arquitetura Multipágina Centralizada (st.navigation)
 # -----------------------------------------------------------------------------
-st.markdown("---")
-footer_c1, footer_c2 = st.columns([2, 1])
-footer_c1.caption(
-    "**MultiTarget BioPredict** — Plataforma Acadêmica de Triagem Virtual Multiobjetivo. "
-    "Desenvolvido por Raphael Pires. Licença MIT. RDKit · scikit-learn · XGBoost · SHAP · Streamlit."
-)
-footer_c2.caption(
-    "Ambiente 100% Local · Restrições de 8 GB RAM respeitadas · Sem dependência de nuvem."
-)
+page_obj_visao_geral = st.Page(page_visao_geral, title="Visão Geral", icon="🏠", url_path="", default=True)
+page_obj_nova_analise = st.Page(page_nova_analise, title="Nova Análise", icon="🧪", url_path="nova-analise")
+page_obj_resultados = st.Page(page_resultados, title="Resultados", icon="📊", url_path="resultados")
+page_obj_interpretacao = st.Page(page_interpretacao, title="Interpretação", icon="🔬", url_path="interpretacao")
+page_obj_comparacao = st.Page(page_comparacao, title="Comparação", icon="⚖️", url_path="comparacao")
+page_obj_como_utilizar = st.Page(page_como_utilizar, title="Como Utilizar", icon="📖", url_path="como-utilizar")
+page_obj_fundamentos = st.Page(page_fundamentos, title="Fundamentos Científicos", icon="🔬", url_path="fundamentos")
+page_obj_governanca = st.Page(page_governanca, title="Modelos e Governança", icon="⚖️", url_path="governanca")
+page_obj_sobre = st.Page(page_sobre, title="Sobre o Projeto", icon="ℹ️", url_path="sobre")
+
+pages_registry = {
+    "": page_obj_visao_geral,
+    "visao_geral": page_obj_visao_geral,
+    "visao-geral": page_obj_visao_geral,
+    "nova_analise": page_obj_nova_analise,
+    "nova-analise": page_obj_nova_analise,
+    "resultados": page_obj_resultados,
+    "interpretacao": page_obj_interpretacao,
+    "comparacao": page_obj_comparacao,
+    "como_utilizar": page_obj_como_utilizar,
+    "como-utilizar": page_obj_como_utilizar,
+    "fundamentos": page_obj_fundamentos,
+    "governanca": page_obj_governanca,
+    "sobre": page_obj_sobre,
+}
+st.session_state["pages_registry"] = pages_registry
+
+pages_navigation = {
+    "ANÁLISE": [
+        page_obj_visao_geral,
+        page_obj_nova_analise,
+        page_obj_resultados,
+        page_obj_interpretacao,
+        page_obj_comparacao,
+    ],
+    "APRENDER": [
+        page_obj_como_utilizar,
+        page_obj_fundamentos,
+    ],
+    "REFERÊNCIA": [
+        page_obj_governanca,
+        page_obj_sobre,
+    ],
+}
+
+nav_controller = st.navigation(pages_navigation, position="sidebar")
+nav_controller.run()

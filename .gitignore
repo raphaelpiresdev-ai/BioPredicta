@@ -56,6 +56,9 @@ logs/
 *.temp
 tmp/
 scratch/
+diagnostico_*.py
+test_debug_*.py
+verify_*.py
 
 # =============================================================================
 # Dados (data/)
