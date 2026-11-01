@@ -22,6 +22,11 @@ joblib==1.6.0
 streamlit==1.65.0
 streamlit-ketcher==0.0.1
 
+# --- API REST (FastAPI) ------------------------------------------------------
+fastapi==0.162.0
+pydantic==2.14.2
+uvicorn==0.54.0
+
 # --- Aquisição de dados ------------------------------------------------------
 chembl_webresource_client==0.10.9
 requests>=2.31,<3          # download direto dos datasets TDC (Harvard Dataverse)
