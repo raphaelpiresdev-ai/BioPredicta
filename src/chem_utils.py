@@ -82,17 +82,62 @@ def standardize_mol(mol: Chem.Mol) -> Optional[Chem.Mol]:
         return None
 
 
+def _mol_from_molblock(text: str) -> Optional[Chem.Mol]:
+    """Interpreta robustamente um bloco MDL Molfile (V2000 ou V3000)."""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    # 1. Tentativa de parsing direto
+    mol = Chem.MolFromMolBlock(text)
+    if mol is not None:
+        return mol
+    # 2. Tentativa com rstrip (preserva quebras de linha iniciais de cabeçalho)
+    mol = Chem.MolFromMolBlock(text.rstrip())
+    if mol is not None:
+        return mol
+    # 3. Localiza a linha de contagens V2000/V3000 e ajusta para 3 linhas de cabeçalho
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if "V2000" in line or "V3000" in line:
+            if i < 3:
+                adjusted = ([""] * (3 - i)) + lines
+            elif i > 3:
+                adjusted = lines[i - 3 :]
+            else:
+                adjusted = lines
+            mol = Chem.MolFromMolBlock("\n".join(adjusted))
+            if mol is not None:
+                return mol
+            break
+    return None
+
+
 def smiles_to_mol(smiles: str, standardize: bool = True) -> Optional[Chem.Mol]:
-    """Converte SMILES em ``Chem.Mol`` (opcionalmente padronizado).
+    """Converte SMILES ou bloco MDL Molfile em ``Chem.Mol`` (opcionalmente padronizado).
+
+    Suporta strings lineares SMILES e representações MDL Molfile (V2000/V3000),
+    como as geradas pelo editor molecular Ketcher ao submeter a estrutura.
 
     Returns:
-        ``Chem.Mol`` válido ou ``None`` se o SMILES for vazio/inválido.
+        ``Chem.Mol`` válido ou ``None`` se a representação for vazia/inválida.
     """
     if not isinstance(smiles, str) or not smiles.strip():
         return None
-    mol = Chem.MolFromSmiles(smiles.strip())
+    raw = smiles.strip()
+    mol = None
+    # 1. Se contiver demarcadores característicos de bloco MDL Molfile
+    if "M  END" in raw or "V2000" in raw or "V3000" in raw:
+        mol = _mol_from_molblock(smiles)
+
+    # 2. Se não for MolBlock ou falhou, tenta parse como SMILES
     if mol is None:
+        try:
+            mol = Chem.MolFromSmiles(raw)
+        except Exception:
+            mol = None
+
+    if mol is None or mol.GetNumAtoms() == 0:
         return None
+
     return standardize_mol(mol) if standardize else mol
 
 
