@@ -1,8 +1,8 @@
 """Módulo principal da API REST FastAPI do MultiTarget BioPredict.
 
-Configura a instância da aplicação FastAPI com metadados, documentação OpenAPI
-e gerenciador de ciclo de vida (lifespan) assíncrono para carregamento único
-dos modelos científicos de Machine Learning (A2A e hERG) em memória durante a inicialização.
+Configura a instância da aplicação FastAPI com metadados, documentação OpenAPI,
+gerenciador de ciclo de vida (lifespan) para carregamento dos modelos científicos
+e roteadores HTTP para monitoramento (GET /health) e predição (POST /predict).
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
+from src.api.routers.health import router as health_router
+from src.api.routers.predict import router as predict_router
 from src.model_utils import load_model
 
 logger = logging.getLogger(__name__)
@@ -89,3 +91,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+# Inclusão dos roteadores oficiais de monitoramento e inferência
+app.include_router(health_router)
+app.include_router(predict_router)

@@ -1,10 +1,10 @@
-"""Testes de conformidade da estrutura modular da API FastAPI (Fases 2 e 3).
+"""Testes de conformidade da estrutura modular da API FastAPI (Fases 2 a 5).
 
 Verifica:
 1. Instanciação e configuração correta da aplicação FastAPI.
 2. Metadados e rotas padrão de documentação OpenAPI.
 3. Importabilidade dos subpacotes schemas, services e routers.
-4. Respeito às restrições de escopo (nenhum endpoint customizado implementado prematuramente).
+4. Respeito às restrições de escopo (exclusivamente /health e /predict registrados).
 5. Ausência de dependências circulares entre api, src e ui.
 """
 
@@ -39,18 +39,14 @@ def test_api_subpackages_importable():
     assert routers is not None
 
 
-def test_no_endpoints_prematurely_added():
-    """Verifica se restrições de escopo são respeitadas (nenhum endpoint de predição adicionado prematuramente)."""
-    from src.api.main import app, lifespan
+def test_expected_official_endpoints_registered():
+    """Verifica se exclusivamente as rotas oficiais /health e /predict estão registradas na API."""
+    from src.api.main import app
 
-    # Apenas rotas padrão da documentação OpenAPI devem existir, nenhum endpoint de negócio prematuro
-    rotas_usuario = [
-        r for r in app.routes
-        if getattr(r, "path", "") not in ("/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json")
-    ]
-    assert len(rotas_usuario) == 0, f"Esperado 0 endpoints de negócio, encontrados: {[r.path for r in rotas_usuario]}"
+    caminhos_openapi = list(app.openapi()["paths"].keys())
+    assert set(caminhos_openapi) == {"/health", "/predict"}, f"Rotas encontradas: {caminhos_openapi}"
 
-    # O gerenciador de ciclo de vida (lifespan) deve estar registrado
+    # O gerenciador de ciclo de vida (lifespan) deve permanecer registrado
     assert app.router.lifespan_context is not None
 
 
