@@ -6,8 +6,8 @@ Módulo de avaliação supervisionada do MultiTarget BioPredict:
 - Métricas de classificação binária para cardiotoxicidade hERG (ROC-AUC, PR-AUC, F1, MCC, Balanced Accuracy).
 - Notação canônica para intervalos operacionais de risco hERG (sem sobreposição):
   * Baixo Risco: P < 0.30
-  * Risco Intermediário: 0.30 <= P < 0.70
-  * Alto Risco: P >= 0.70
+  * Risco Moderado: 0.30 <= P <= 0.70
+  * Alto Risco: P > 0.70
 - Protocolos de validação cruzada 5-fold (K-Fold e Stratified K-Fold) com paralelismo local seguro (n_jobs=2).
 """
 

@@ -26,6 +26,15 @@ def test_fastapi_app_instance():
     assert app.docs_url == "/docs"
     assert app.redoc_url == "/redoc"
     assert app.openapi_url == "/openapi.json"
+    official_identity = (
+        "Plataforma de Triagem Virtual Multiobjetivo: "
+        "Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG"
+    )
+    assert app.summary == official_identity
+    assert official_identity in app.description
+    openapi_info = app.openapi()["info"]
+    assert openapi_info["summary"] == official_identity
+    assert official_identity in openapi_info["description"]
 
 
 def test_api_subpackages_importable():

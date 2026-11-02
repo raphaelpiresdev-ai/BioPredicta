@@ -122,7 +122,7 @@ def test_app_multiobjective_figure_geometry_and_thresholds():
         ]
         assert len(ideal_matches) == 1, f"Região ideal [6.5, 11.5, 0.70, 1.00] não encontrada em {bboxes}"
 
-        # Região potente porém cardiotóxica: x in [6.5, 11.5], y in [0.00, 0.30] (y = 0.30 pertence à região de alto risco)
+        # Região potente porém cardiotóxica: x in [6.5, 11.5], y in [0.00, 0.30] (y < 0.30 corresponde a alto risco; y = 0.30 é a linha de fronteira)
         toxic_potent_matches = [
             b for b in bboxes
             if np.allclose(b, (6.5, 11.5, 0.00, 0.30), rtol=1e-12, atol=1e-12)

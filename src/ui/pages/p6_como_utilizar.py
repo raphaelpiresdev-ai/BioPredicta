@@ -151,7 +151,7 @@ def render_como_utilizar() -> None:
             st.markdown(
                 """
                 #### Apresentação Essencial
-                O **MultiTarget BioPredict** é uma plataforma computacional concebida para realizar **triagem virtual multiobjetivo (*in silico*)** 
+                O **MultiTarget BioPredict** (**Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG**) é uma plataforma computacional concebida para realizar **triagem virtual multiobjetivo (*in silico*)** 
                 de pequenas moléculas orgânicas a partir de representações químicas bidimensionais.
                 
                 No processo de descoberta de novos candidatos a bioativos e fármacos, a busca por alta potência em um alvo terapêutico 

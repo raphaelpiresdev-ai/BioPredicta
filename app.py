@@ -1,5 +1,5 @@
 """
-MultiTarget BioPredict — Plataforma de Triagem Virtual Multiobjetivo (A2A × hERG)
+MultiTarget BioPredict — Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG
 Aplicação Web Interativa em Streamlit com Explicabilidade Química SHAP (RDKit Morgan bitInfo)
 e Editor Molecular Bidimensional Ketcher.
 """
@@ -44,7 +44,7 @@ from src.pubchem_utils import (
 # 1. Configuração da Página
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="MultiTarget BioPredict | A2A × hERG",
+    page_title="MultiTarget BioPredict — Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -1222,10 +1222,10 @@ def build_control_provenance_html(
 # -----------------------------------------------------------------------------
 def classify_herg_operational_risk(prob_herg: float) -> Dict[str, str]:
     """
-    Classifica o escore estimado P_hERG segundo a convenção canônica:
-    - Baixo: p < 0.30
-    - Intermediário: 0.30 <= p < 0.70
-    - Alto: p >= 0.70
+    Classifica o escore estimado P_hERG segundo a convenção oficial do projeto:
+    - Baixo risco: p < 0.30
+    - Risco moderado: 0.30 <= p <= 0.70 (0.70 pertence à classificação moderada)
+    - Alto risco: p > 0.70
     """
     if prob_herg < 0.30:
         return {
@@ -1238,14 +1238,14 @@ def classify_herg_operational_risk(prob_herg: float) -> Dict[str, str]:
                 "Trata-se de estimativa de classificador Random Forest não calibrado, não de probabilidade clínica direta."
             ),
         }
-    elif prob_herg < 0.70:
+    elif prob_herg <= 0.70:
         return {
             "risk_class": "intermediario",
             "color_class": "semaphore-yellow",
             "bar_color": "#F59E0B",
-            "label": "🟡 Classe Operacional: Intermediário/Moderado (0,30 ≤ P_hERG < 0,70)",
+            "label": "🟡 Classe Operacional: Intermediário/Moderado (0,30 ≤ P_hERG ≤ 0,70)",
             "desc": (
-                "Escore de probabilidade estimado pelo modelo na faixa operacional intermediária (0,30 ≤ P_hERG < 0,70). "
+                "Escore de probabilidade estimado pelo modelo na faixa operacional intermediária/moderada (0,30 ≤ P_hERG ≤ 0,70). "
                 "Requer verificação experimental in vitro (ex.: patch-clamp) antes de conclusão farmacológica."
             ),
         }
@@ -1254,9 +1254,9 @@ def classify_herg_operational_risk(prob_herg: float) -> Dict[str, str]:
             "risk_class": "alto",
             "color_class": "semaphore-red",
             "bar_color": "#FF4B4B",
-            "label": "🔴 Classe Operacional: Alto Risco (P_hERG ≥ 0,70)",
+            "label": "🔴 Classe Operacional: Alto Risco (P_hERG > 0,70)",
             "desc": (
-                "Escore de probabilidade estimado pelo modelo igual ou superior a 0,70 (P_hERG ≥ 0,70; classe operacional alta para bloqueio hERG). "
+                "Escore de probabilidade estimado pelo modelo estritamente superior a 0,70 (P_hERG > 0,70; classe operacional alta para bloqueio hERG). "
                 "Alerta preditivo computacional; não equivale diretamente à probabilidade clínica de arritmia."
             ),
         }
@@ -1319,7 +1319,7 @@ def build_multiobjective_figure(
         0.30,
         color="#FF4B4B",
         alpha=0.14,
-        label="Potente porém Alto Risco Operacional hERG (pIC50 ≥ 6,5 e P_hERG ≥ 0,70)",
+        label="Potente porém Alto Risco Operacional hERG (pIC50 ≥ 6,5 e P_hERG > 0,70)",
     )
     ax_mat.fill_between(
         [3.5, 5.0],
@@ -1327,7 +1327,7 @@ def build_multiobjective_figure(
         0.30,
         color="#FF4B4B",
         alpha=0.08,
-        label="Inativo & Alto Risco Operacional hERG (pIC50 < 5,0 e P_hERG ≥ 0,70)",
+        label="Inativo & Alto Risco Operacional hERG (pIC50 < 5,0 e P_hERG > 0,70)",
     )
 
     ax_mat.text(
@@ -1399,14 +1399,14 @@ def build_multiobjective_figure(
 
 def classify_herg_safety_axis(y_cur: float, atol: float = 1e-12) -> str:
     """
-    Classifica o eixo complementar y = 1 - P_hERG segundo a convenção canônica:
-    - Baixo risco: y > 0.70
-    - Intermediário: 0.30 < y <= 0.70
-    - Alto risco: y <= 0.30
+    Classifica o eixo complementar y = 1 - P_hERG segundo a convenção oficial:
+    - Baixo risco: y > 0.70 (P_hERG < 0.30)
+    - Intermediário / Moderado: 0.30 <= y <= 0.70 (0.30 <= P_hERG <= 0.70)
+    - Alto risco: y < 0.30 (P_hERG > 0.70)
     Utiliza tolerância de ponto flutuante (np.isclose) nas fronteiras 0.30 e 0.70
     para evitar desvios de representação binária IEEE 754 em y = 1.0 - p.
     """
-    if y_cur <= 0.30 or bool(np.isclose(y_cur, 0.30, rtol=0.0, atol=atol)):
+    if y_cur < 0.30 and not bool(np.isclose(y_cur, 0.30, rtol=0.0, atol=atol)):
         return "alto"
     elif y_cur > 0.70 and not bool(np.isclose(y_cur, 0.70, rtol=0.0, atol=atol)):
         return "baixo"
@@ -1420,8 +1420,8 @@ def classify_multiobjective_quadrant(
 ) -> Dict[str, str]:
     """
     Classifica a posição cartesiana (x_cur = pIC50, y_cur = 1 - P_hERG) nos quadrantes
-    operacionais, garantindo que y = 0.30 (P_hERG = 0.70) pertença ao risco alto (y <= 0.30)
-    e que o intervalo intermediário seja estritamente 0.30 < y <= 0.70 (0.30 <= P_hERG < 0.70).
+    operacionais, garantindo que y = 0.30 (P_hERG = 0.70) pertença ao risco moderado
+    (0.30 <= y <= 0.70 / 0.30 <= P_hERG <= 0.70) e alto risco seja estritamente y < 0.30 (P_hERG > 0.70).
     """
     herg_y_class = classify_herg_safety_axis(y_cur, atol=atol)
 
@@ -1442,7 +1442,7 @@ def classify_multiobjective_quadrant(
             "quad_title": "⚠️ Quadrante 4 — Potente porém Alto Escore hERG",
             "quad_text": (
                 "O composto exibe alta potência predita em A2A, mas apresenta escore elevado de probabilidade "
-                "estimada para bloqueio hERG (P_hERG ≥ 0,70; 1 - P_hERG ≤ 0,30). Recomenda-se redução de MolLogP ou atenuação de aminas básicas."
+                "estimada para bloqueio hERG (P_hERG > 0,70; 1 - P_hERG < 0,30). Recomenda-se redução de MolLogP ou atenuação de aminas básicas."
             ),
         }
     elif x_cur < 5.0 and herg_y_class == "baixo":
@@ -1460,7 +1460,7 @@ def classify_multiobjective_quadrant(
             "herg_class": herg_y_class,
             "quad_badge_cls": "semaphore-red",
             "quad_title": "❌ Quadrante 3 — Baixa Potência Predita & Alto Escore hERG",
-            "quad_text": "Baixa potência predita em A2A aliada a alto escore operacional de bloqueio hERG (P_hERG ≥ 0,70; 1 - P_hERG ≤ 0,30).",
+            "quad_text": "Baixa potência predita em A2A aliada a alto escore operacional de bloqueio hERG (P_hERG > 0,70; 1 - P_hERG < 0,30).",
         }
     else:
         return {
@@ -1469,7 +1469,7 @@ def classify_multiobjective_quadrant(
             "quad_title": "🟡 Zona de Transição Operacional / Otimização Hit-to-Lead",
             "quad_text": (
                 "Composto situado na faixa operacional intermediária de potência predita A2A (5,0 ≤ pIC50 < 6,5) "
-                "e/ou de escore estimado hERG (0,30 ≤ P_hERG < 0,70; 0,30 < 1 - P_hERG ≤ 0,70). Utilize a decomposição SHAP abaixo para análise estrutural."
+                "e/ou de escore estimado hERG (0,30 ≤ P_hERG ≤ 0,70; 0,30 ≤ 1 - P_hERG ≤ 0,70). Utilize a decomposição SHAP abaixo para análise estrutural."
             ),
         }
 
@@ -1484,7 +1484,7 @@ def render_legacy_analysis_view() -> None:
     # -----------------------------------------------------------------------------
     with st.sidebar:
         st.markdown("### 🧬 MultiTarget BioPredict")
-        st.caption("Triagem Virtual Multiobjetivo $A_{2A}$ × hERG")
+        st.caption("Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG")
 
         st.markdown("---")
         st.markdown("#### ⚙️ Modo de Entrada")
@@ -1533,9 +1533,9 @@ def render_legacy_analysis_view() -> None:
             - 🔴 **Baixa/Inativo:** $pIC_{50} < 5{,}0$
 
             **Escore Estimado hERG ($P_{\text{hERG}}$):**
-            - 🟢 **Baixo (Operacional):** $P < 0{,}30$ ($30\%$)
-            - 🟡 **Intermediário/Moderado:** $0{,}30 \le P < 0{,}70$ ($30\% \le P < 70\%$)
-            - 🔴 **Alto (Operacional):** $P \ge 0{,}70$ ($70\%$)
+            - 🟢 **Baixo (Operacional):** $P < 0{,}30$ ($< 30\%$)
+            - 🟡 **Intermediário/Moderado:** $0{,}30 \le P \le 0{,}70$ ($30\% \le P \le 70\%$)
+            - 🔴 **Alto (Operacional):** $P > 0{,}70$ ($> 70\%$)
             """
         )
         st.caption("100% Local · AMD Ryzen 7 CPU · 8 GB RAM")
@@ -1549,8 +1549,7 @@ def render_legacy_analysis_view() -> None:
         <div class="hero-banner">
             <div class="main-title">MultiTarget BioPredict</div>
             <div class="sub-title">
-                Plataforma Computacional de Triagem Virtual Multiobjetivo e Interpretabilidade Química (RDKit + SHAP):
-                Afinidade Predita ao Receptor de Adenosina <b>A<sub>2A</sub></b> vs. Escore de Probabilidade Estimado para Bloqueio do Canal <b>hERG (K<sub>v</sub>11.1)</b>
+                Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG
             </div>
         </div>
         """
@@ -1572,8 +1571,8 @@ def render_legacy_analysis_view() -> None:
                 * **❤️ Segurança Cardíaca (Bloqueio do Canal hERG):**
                   O canal de potássio cardíaco $K_v11.1$ (hERG) é essencial para a repolarização elétrica cardíaca.
                   * O bloqueio indesejado desse canal pode prolongar o intervalo QT e induzir arritmias ventriculares graves (*Torsades de Pointes*).
-                  * O modelo estima a **Probabilidade $P(\text{hERG})$**: escores abaixo de **$30\%$** indicam perfil seguro (baixo risco),
-                    enquanto valores a partir de **$70\%$** acionam alerta vermelho de cardiotoxicidade.
+                  * O modelo estima a **Probabilidade $P(\text{hERG})$**: escores abaixo de **$30\%$** ($P < 0{,}30$) indicam baixo risco operacional,
+                    valores entre **$30\%$ e $70\%$** ($0{,}30 \le P \le 0{,}70$) indicam risco moderado, e valores estritamente superiores a **$70\%$** ($P > 0{,}70$) acionam alerta vermelho de alto risco operacional.
                 """
             )
         with col_guide_xai:
@@ -1851,7 +1850,7 @@ def render_legacy_analysis_view() -> None:
 
     with col_sem2:
         herg_bar_pct = int(np.clip(prob_herg * 100, 0, 100))
-        herg_bar_color = "#00D2BE" if prob_herg < 0.30 else ("#F59E0B" if prob_herg < 0.70 else "#FF4B4B")
+        herg_bar_color = "#00D2BE" if prob_herg < 0.30 else ("#F59E0B" if prob_herg <= 0.70 else "#FF4B4B")
         herg_sample_badge_cls = "insample-badge" if provenance["herg_in_sample"] else "outsample-badge"
         herg_sample_icon = "📌" if provenance["herg_in_sample"] else "🔬"
 
@@ -1999,7 +1998,7 @@ def render_legacy_analysis_view() -> None:
                     <div class="kpi-label">Eixo Vertical (Y) — Margem de Segurança Derivada</div>
                     <div style="color:#FFFFFF; font-size:0.95rem; margin-top:0.2rem;">
                         <b>1 - P(hERG) = {y_cur:.1%}</b> (Escore hERG = {prob_herg:.1%}) &nbsp;•&nbsp; 
-                        <span style="color:#94A3B8; font-size:0.82rem;">Faixas: Alto Risco (P ≥ 70%) | Moderado (30%–70%) | Baixo Risco (P &lt; 30%)</span>
+                        <span style="color:#94A3B8; font-size:0.82rem;">Faixas: Alto Risco (P &gt; 70%) | Moderado (30% ≤ P ≤ 70%) | Baixo Risco (P &lt; 30%)</span>
                     </div>
                 </div>
             </div>
@@ -2204,8 +2203,9 @@ def render_legacy_analysis_view() -> None:
     st.markdown("---")
     footer_c1, footer_c2 = st.columns([2, 1])
     footer_c1.caption(
-        "**MultiTarget BioPredict** — Plataforma Acadêmica de Triagem Virtual Multiobjetivo. "
-        "Desenvolvido por Raphael Pires. Licença MIT. RDKit · scikit-learn · XGBoost · SHAP · Streamlit."
+        "**MultiTarget BioPredict** — Plataforma de Triagem Virtual Multiobjetivo: "
+        "Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG. "
+        "Desenvolvido por Raphael Pires. RDKit · scikit-learn · XGBoost · SHAP · Streamlit · FastAPI."
     )
     footer_c2.caption(
         "Ambiente 100% Local · Restrições de 8 GB RAM respeitadas · Sem dependência de nuvem."
@@ -2221,7 +2221,7 @@ def page_visao_geral() -> None:
     render_provisional_page(
         page_name="Visão Geral",
         scheduled_stage="Etapa de Implementação 5",
-        description="Apresentação do escopo científico, pipeline em 4 etapas, estado operacional dos modelos e fluxo de trabalho multiobjetivo.",
+        description="Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG — apresentação do escopo científico, pipeline em 4 etapas, estado operacional dos modelos e fluxo de trabalho multiobjetivo.",
         icon="🏠",
     )
 
@@ -2284,7 +2284,7 @@ def page_sobre() -> None:
     render_provisional_page(
         page_name="Sobre o Projeto",
         scheduled_stage="Etapa de Implementação 5",
-        description="Créditos acadêmicos, termos de licenciamento MIT, ambiente local de execução e disclaimer de uso para pesquisa.",
+        description="Créditos acadêmicos, informações de licenciamento, ambiente local de execução e disclaimer de uso para pesquisa.",
         icon="ℹ️",
     )
 

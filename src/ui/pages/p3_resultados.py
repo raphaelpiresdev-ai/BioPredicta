@@ -449,8 +449,8 @@ def render_resultados(analysis: Optional[Dict[str, Any]] = None) -> None:
             | :--- | :--- | :--- |
             | **🏆 Quadrante 1 (Ideal)** | $pIC_{50} \ge 6,5$ e $P_{\text{hERG}} < 0,30$ | Alta afinidade nanomolar aliada a baixo escore de cardiotoxicidade. Molécula de alta prioridade. |
             | **🌿 Quadrante 2 (Baixo Interesse)** | $pIC_{50} < 5,0$ e $P_{\text{hERG}} < 0,30$ | Perfil cardíaco favorável, porém sem afinidade relevante pelo receptor A2A. |
-            | **❌ Quadrante 3 (Descarte)** | $pIC_{50} < 5,0$ e $P_{\text{hERG}} \ge 0,70$ | Inativo no alvo terapêutico e alto risco predito de bloqueio de canal cardíaco. Descarte imediato. |
-            | **⚠️ Quadrante 4 (Alerta Crítico)** | $pIC_{50} \ge 6,5$ e $P_{\text{hERG}} \ge 0,70$ | Alta afinidade biológica, mas associada a alto escore cardiotóxico. Exige desderivação guiada. |
+            | **❌ Quadrante 3 (Descarte)** | $pIC_{50} < 5,0$ e $P_{\text{hERG}} > 0,70$ | Inativo no alvo terapêutico e alto risco predito de bloqueio de canal cardíaco. Descarte imediato. |
+            | **⚠️ Quadrante 4 (Alerta Crítico)** | $pIC_{50} \ge 6,5$ e $P_{\text{hERG}} > 0,70$ | Alta afinidade biológica, mas associada a alto escore cardiotóxico. Exige desderivação guiada. |
             | **🟡 Zona de Otimização** | Faixas intermediárias | $5,0 \le pIC_{50} < 6,5$ e/ou $0,30 \le P_{\text{hERG}} \le 0,70$. Hit com potencial de otimização estrutural. |
             
             *Aviso: O eixo Y (1 - P) é uma construção matemática auxiliar de otimização cartesiana multiobjetivo; não representa probabilidade clínica nem margem de segurança clínica in vivo.*

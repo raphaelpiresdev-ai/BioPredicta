@@ -1,6 +1,8 @@
 """Módulo principal da API REST FastAPI do MultiTarget BioPredict.
 
-Configura a instância da aplicação FastAPI com metadados, documentação OpenAPI,
+Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG.
+
+Configura a instância da aplicação FastAPI com metadados oficiais, documentação OpenAPI,
 gerenciador de ciclo de vida (lifespan) para carregamento dos modelos científicos
 e roteadores HTTP para monitoramento (GET /health) e predição (POST /predict).
 """
@@ -14,6 +16,13 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from json.decoder import JSONDecodeError
+
+from src.api.exception_handlers import (
+    json_decode_exception_handler,
+    validation_exception_handler,
+)
 
 from src.api.routers.health import router as health_router
 from src.api.routers.predict import router as predict_router
@@ -80,10 +89,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="MultiTarget BioPredict API",
+    summary=(
+        "Plataforma de Triagem Virtual Multiobjetivo: "
+        "Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG"
+    ),
     description=(
-        "Plataforma de Triagem Virtual Multiobjetivo (A2A × hERG). "
-        "REST API para predição de afinidade ao receptor purinérgico A2A (pIC50) "
-        "e avaliação toxicológica de bloqueio do canal de potássio hERG."
+        "Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG. "
+        "Interface programática REST para predição simultânea de potência no receptor de adenosina A2A (pIC50) "
+        "e probabilidade de classificação positiva para bloqueio do canal de potássio hERG (Kv11.1)."
     ),
     version="0.1.0",
     docs_url="/docs",
@@ -95,3 +108,7 @@ app = FastAPI(
 # Inclusão dos roteadores oficiais de monitoramento e inferência
 app.include_router(health_router)
 app.include_router(predict_router)
+
+# Registro dos manipuladores centralizados de erros de validação e formatação HTTP
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(JSONDecodeError, json_decode_exception_handler)

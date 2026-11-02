@@ -16,11 +16,11 @@ class ModelsLoadedStatus(BaseModel):
 
     a2a: bool = Field(
         ...,
-        description="Indica se o modelo de afinidade A2A está carregado e pronto para inferência.",
+        description="Indica se o modelo de regressão de potência no receptor de adenosina A2A está carregado e pronto para inferência.",
     )
     herg: bool = Field(
         ...,
-        description="Indica se o modelo de cardiotoxicidade hERG está carregado e pronto para inferência.",
+        description="Indica se o modelo de classificação de bloqueio do canal hERG está carregado e pronto para inferência.",
     )
 
 

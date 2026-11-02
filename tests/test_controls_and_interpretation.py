@@ -277,7 +277,7 @@ def test_herg_terminology_thresholds_and_validation_notices() -> None:
     """
     Verifica a terminologia de hERG (escore estimado pelo modelo, índice complementar 1 - P_hERG,
     classes operacionais), o aviso sobre reajuste (refit 100%) pós-holdout 80/20 e a preservação
-    dos limiares operacionais canônicos (5.0, 6.5 e [0.30, 0.70)).
+    dos limiares operacionais canônicos (5.0, 6.5 e [0.30, 0.70]).
     """
     app_text = APP_PATH.read_text(encoding="utf-8")
     dev_text = DEV_MD_PATH.read_text(encoding="utf-8")
@@ -296,8 +296,8 @@ def test_herg_terminology_thresholds_and_validation_notices() -> None:
     assert "pred_pIC50 >= 6.5" in app_text
     assert "pred_pIC50 >= 5.0" in app_text
     assert "prob_herg < 0.30" in app_text
-    assert "prob_herg < 0.70" in app_text
-    assert "prob_herg <= 0.70" not in app_text
+    assert "prob_herg <= 0.70" in app_text
+    assert "prob_herg < 0.70" not in app_text
 
     # Terminologia e convenção canônica em DEVELOPMENT.md, PRD.md e herg_model_metadata.json
     assert "CHEMBL431770" in dev_text
@@ -306,10 +306,10 @@ def test_herg_terminology_thresholds_and_validation_notices() -> None:
     assert "reajustado (*refit*) sobre a totalidade" in dev_text
     assert "5,51" in dev_text
     assert "45,9%" in dev_text
-    assert "$30\\% \\le P_{\\text{hERG}} < 70\\%$" in dev_text
-    assert "$P_{\\text{hERG}} \\ge 70\\%$" in dev_text
-    assert "$30\\% \\le P_{\\text{hERG}} < 70\\%$" in prd_text
-    assert "$P_{\\text{hERG}} \\ge 70\\%$" in prd_text
+    assert "$30\\% \\le P_{\\text{hERG}} \\le 70\\%$" in dev_text
+    assert "$P_{\\text{hERG}} > 70\\%$" in dev_text
+    assert "$30\\% \\le P_{\\text{hERG}} \\le 70\\%$" in prd_text
+    assert "$P_{\\text{hERG}} > 70\\%$" in prd_text
     assert herg_meta["decision_thresholds"] == {
         "green_low_risk": "P(hERG) < 0.30",
         "yellow_moderate_risk": "0.30 <= P(hERG) < 0.70",
@@ -326,11 +326,13 @@ def test_herg_canonical_boundary_values_and_y_axis_complement() -> None:
     classify_herg, classify_y, classify_quad = _load_app_herg_classifiers()
 
     boundary_cases = [
+        (0.29, 0.71, "baixo", "semaphore-green", "#00D2BE"),
         (0.299, 0.701, "baixo", "semaphore-green", "#00D2BE"),
         (0.300, 0.700, "intermediario", "semaphore-yellow", "#F59E0B"),
         (0.699, 0.301, "intermediario", "semaphore-yellow", "#F59E0B"),
-        (0.700, 0.300, "alto", "semaphore-red", "#FF4B4B"),
+        (0.700, 0.300, "intermediario", "semaphore-yellow", "#F59E0B"),
         (0.701, 0.299, "alto", "semaphore-red", "#FF4B4B"),
+        (0.71, 0.29, "alto", "semaphore-red", "#FF4B4B"),
     ]
 
     for p_val, expected_y, expected_class, expected_cls, expected_hex in boundary_cases:
@@ -357,7 +359,7 @@ def test_herg_canonical_boundary_values_and_y_axis_complement() -> None:
             assert "Zona de Transição" in quad_high_pot["quad_title"]
         else:
             assert "Quadrante 4" in quad_high_pot["quad_title"]
-            assert "P_hERG ≥ 0,70" in quad_high_pot["quad_text"]
+            assert "P_hERG > 0,70" in quad_high_pot["quad_text"]
 
         quad_low_pot = classify_quad(4.5, y_val)
         assert quad_low_pot["herg_class"] == expected_class
@@ -367,7 +369,7 @@ def test_herg_canonical_boundary_values_and_y_axis_complement() -> None:
             assert "Zona de Transição" in quad_low_pot["quad_title"]
         else:
             assert "Quadrante 3" in quad_low_pot["quad_title"]
-            assert "P_hERG ≥ 0,70" in quad_low_pot["quad_text"]
+            assert "P_hERG > 0,70" in quad_low_pot["quad_text"]
 
     # 4. Verifica também as funções auxiliares get_herg_semaforo (NB06) e semaforo_herg (NB07)
     nb06_data = json.loads(NB06_PATH.read_text(encoding="utf-8"))
@@ -388,11 +390,13 @@ def test_herg_canonical_boundary_values_and_y_axis_complement() -> None:
     exec(compile(ast.Module(body=[nb06_func_src], type_ignores=[]), filename=str(NB06_PATH), mode="exec"), ns06)
     get_herg_semaforo = ns06["get_herg_semaforo"]
 
+    assert "Baixo" in get_herg_semaforo(0.29)
     assert "Baixo" in get_herg_semaforo(0.299)
     assert "Moderado" in get_herg_semaforo(0.300)
     assert "Moderado" in get_herg_semaforo(0.699)
-    assert "Alto" in get_herg_semaforo(0.700)
+    assert "Moderado" in get_herg_semaforo(0.700)
     assert "Alto" in get_herg_semaforo(0.701)
+    assert "Alto" in get_herg_semaforo(0.71)
 
     for cell in nb07_data["cells"]:
         if cell.get("cell_type") in ("code", "markdown"):
@@ -404,10 +408,12 @@ def test_herg_canonical_boundary_values_and_y_axis_complement() -> None:
                         ns07: Dict[str, Any] = {}
                         exec(compile(ast.Module(body=[node], type_ignores=[]), filename=str(NB07_PATH), mode="exec"), ns07)
                         semaforo_herg = ns07["semaforo_herg"]
+                        assert "Baixo" in semaforo_herg(0.29)
                         assert "Baixo" in semaforo_herg(0.299)
                         assert "Moderado" in semaforo_herg(0.300)
                         assert "Moderado" in semaforo_herg(0.699)
-                        assert "Alto" in semaforo_herg(0.700)
+                        assert "Moderado" in semaforo_herg(0.700)
                         assert "Alto" in semaforo_herg(0.701)
+                        assert "Alto" in semaforo_herg(0.71)
 
 

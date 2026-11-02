@@ -1,7 +1,7 @@
 """Modelos e contratos de dados para predição molecular (Pydantic).
 
 Define os esquemas formais de entrada (PredictionRequest) e saída (PredictionResponse)
-para a futura rota de inferência multiobjetivo (A2A e hERG), aplicando validação
+para a rota de inferência multiobjetivo (POST /predict — A2A e hERG), aplicando validação
 estrita de tipos, restrições estruturais de fronteira e documentação OpenAPI.
 """
 

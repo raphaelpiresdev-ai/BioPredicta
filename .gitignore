@@ -1,5 +1,5 @@
 # =============================================================================
-# MultiTarget BioPredict — .gitignore (Python + Ciência de Dados)
+# MultiTarget BioPredict — .gitignore (Python + Quimioinformática + FastAPI + Streamlit)
 # =============================================================================
 
 # --- Ambientes virtuais ------------------------------------------------------
@@ -16,40 +16,54 @@ conda/
 *.env
 .streamlit/secrets.toml
 
-# --- Caches do Python --------------------------------------------------------
+# --- Caches e binários do Python ---------------------------------------------
 __pycache__/
 *.py[cod]
-*.pyo
 *$py.class
+*.pyo
 *.egg-info/
 .eggs/
 build/
 dist/
+wheels/
+*.egg
+
+# --- Suítes de Teste, Cobertura e Benchmarking (Pytest) ---------------------
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 .mypy_cache/
 .ruff_cache/
-.coverage
-htmlcov/
+.hypothesis/
+.benchmarks/
 
-# --- Jupyter -----------------------------------------------------------------
+# --- Servidores ASGI / FastAPI / Uvicorn -------------------------------------
+*.pid
+uvicorn.log
+
+# --- Jupyter Notebooks -------------------------------------------------------
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
 profile_default/
 ipython_config.py
 
-# --- IDEs / editores ---------------------------------------------------------
+# --- IDEs e editores de código ----------------------------------------------
 .vscode/
 .idea/
 *.swp
+*.swo
 *~
+.directory
 
-# --- Sistema operacional -----------------------------------------------------
+# --- Sistema Operacional (Windows / macOS / Linux) ---------------------------
 .DS_Store
 Thumbs.db
 ehthumbs.db
 desktop.ini
 
-# --- Logs e temporários ------------------------------------------------------
+# --- Logs, arquivos temporários e scratch ------------------------------------
 *.log
 logs/
 *.tmp
@@ -60,10 +74,15 @@ diagnostico_*.py
 test_debug_*.py
 verify_*.py
 
+# --- Bancos de dados locais e temporários -----------------------------------
+*.sqlite
+*.sqlite3
+*.db
+
 # =============================================================================
 # Dados (data/)
-# CSVs essenciais e leves (ex.: datasets curados) PODEM ser versionados.
-# Ignoramos apenas temporários, backups, caches e formatos binários pesados.
+# CSVs essenciais leves e datasets curados e featurizados SÃO versionados.
+# Ignoramos apenas arquivos pesados, backups, temporários e formatos intermediários.
 # =============================================================================
 data/**/*.bak
 data/**/*.backup
@@ -83,12 +102,11 @@ data/**/*.npy
 data/**/*.npz
 data/**/cache/
 data/**/_tmp*/
-# Garante que os marcadores de diretório sempre sejam versionados
 !data/**/.gitkeep
 
 # =============================================================================
 # Modelos (models/)
-# Artefatos finais .joblib (compactados) SÃO versionados.
+# Artefatos finais .joblib (compactados) e metadados JSON SÃO versionados.
 # Ignoramos checkpoints intermediários e experimentos descartáveis.
 # =============================================================================
 models/**/checkpoints/
@@ -96,6 +114,6 @@ models/**/*_tmp.*
 models/**/*.bak
 !models/.gitkeep
 
-# --- Caches de bibliotecas ---------------------------------------------------
+# --- Caches de bibliotecas científicas --------------------------------------
 catboost_info/
 .cache/

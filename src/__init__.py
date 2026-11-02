@@ -1,5 +1,5 @@
 """
-MultiTarget BioPredict — pacote de módulos reutilizáveis.
+MultiTarget BioPredict — Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG.
 
 Módulos:
     chem_utils  : padronização de SMILES e featurização (RDKit)

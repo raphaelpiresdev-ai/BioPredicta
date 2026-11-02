@@ -4,7 +4,7 @@
 
 ## 1. Visão Geral e Problema
 
-- **Nome do Produto:** MultiTarget BioPredict (Preditor Multiobjetivo de Afinidade $A_{2A}$ e Segurança Cardíaca hERG).
+- **Nome do Produto:** MultiTarget BioPredict — Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG.
 - **Contexto:** No desenvolvimento inicial de novos candidatos a bioativos e fármacos, a síntese laboratorial e os ensaios biológicos *in vitro* demandam semanas de bancada e alto custo financeiro. Além de buscar eficácia em um alvo terapêutico (como o receptor de adenosina $A_{2A}$, responsável pela modulação do cansaço e do foco), a indústria farmacêutica enfrenta falhas clínicas tardias decorrentes de toxicidade silenciosa — em especial a arritmia cardíaca induzida pelo bloqueio do canal de potássio hERG (*prolongamento do intervalo QT*).
 - **Proposta de Valor:** Uma plataforma preditiva que realiza triagem virtual multiobjetivo em segundos a partir de representações químicas 2D, avaliando simultaneamente o potencial de eficácia/ancoragem ($A_{2A}$) e o risco toxicológico cardíaco (hERG).
 
@@ -36,7 +36,7 @@
 
 | **Componente** | **Modelo 1: Eficácia (**$A_{2A}$**)** | **Modelo 2: Cardiotoxicidade (hERG)** |
 | --- | --- | --- |
-| **Tipo de Tarefa** | Regressão Contínua | Classificação Binária com Saída Probabilística Calibrada |
+| **Tipo de Tarefa** | Regressão Contínua | Classificação Binária com Saída Probabilística |
 | **Variável Alvo** | Potência de inibição/ligação ($pIC_{50} = -\log_{10}(IC_{50} \times 10^{-9})$) | Probabilidade contínua $[0, 1]$ de ser um bloqueador hERG ($P_{\text{hERG}}$) |
 | **Fonte dos Dados** | ChEMBL (`CHEMBL251` - Adenosine receptor $A_{2A}$) com $IC_{50}$ e relação `=` | Repositório Therapeutics Data Commons (TDC) / ChEMBL (`CHEMBL240`) |
 | **Algoritmos Avaliados** | Ridge, Random Forest, XGBoost e MLP Regressor | Logistic Regression, Random Forest, XGBoost e MLP Classifier |
@@ -64,8 +64,8 @@ Baseado exclusivamente na potência de inibição/ligação estimada pelo modelo
 Baseado exclusivamente na probabilidade contínua calculada pelo modelo de classificação ($P_{\text{hERG}}$):
 
 - 🟢 **Risco Baixo (Seguro):** $P_{\text{hERG}} < 30\%$ (Baixa probabilidade de bloqueio do canal de potássio).
-- 🟡 **Risco Moderado (Atenção):** $30\% \le P_{\text{hERG}} < 70\%$ (Zona cinzenta; o composto requer monitoramento de toxicidade estrutural).
-- 🔴 **Risco Alto (Cardiotóxico):** $P_{\text{hERG}} \ge 70\%$ (Alta probabilidade de indução de prolongamento do intervalo QT / arritmia ventricular).
+- 🟡 **Risco Moderado (Atenção):** $30\% \le P_{\text{hERG}} \le 70\%$ (Zona cinzenta; o composto requer monitoramento de toxicidade estrutural).
+- 🔴 **Risco Alto (Cardiotóxico):** $P_{\text{hERG}} > 70\%$ (Alta probabilidade de indução de prolongamento do intervalo QT / arritmia ventricular).
 
 *Nota de Demonstração:* Os botões de atalho pré-configurados (Cafeína, Istradefilina, Terfenadina, Taurina e L-Teanina) servirão para demonstrar e validar o comportamento independente de ambos os medidores na interface.
 
@@ -135,8 +135,8 @@ Baseado exclusivamente na probabilidade contínua calculada pelo modelo de class
 - **Acurácia Preditiva e Generalização Local:** Validação cruzada estratificada em 5 folds executada com sucesso no ambiente Antigravity, comprovando ausência de vazamento de dados (*data leakage*) e cumprimento das métricas estipuladas na Seção 3.
 - **Estabilidade e Eficiência no Antigravity:** Execução completa do pipeline de treino e inicialização da interface Streamlit local sem registrar estouro de memória (*Out of Memory*) no perfil de máquina de 8 GB de RAM.
 - **Validação dos Controles Farmacológicos (Smoke Tests):**
-    - Identificação correta da **Istradefilina** como composto potente/ativo em $A_{2A}$ ($pIC_{50} = 5{,}51$) e risco intermediário/moderado para bloqueio hERG ($P_{\text{hERG}} = 45{,}9\%$, zona amarela $0{,}30 \le P < 0{,}70$).
-    - Identificação correta da **Terfenadina** como composto cardiotóxico de Alto Risco ($P_{\text{hERG}} = 80{,}5\%$, Semáforo Vermelho automático $P \ge 0{,}70$).
+    - Identificação correta da **Istradefilina** como composto potente/ativo em $A_{2A}$ ($pIC_{50} = 5{,}51$) e risco intermediário/moderado para bloqueio hERG ($P_{\text{hERG}} = 45{,}9\%$, zona amarela $0{,}30 \le P \le 0{,}70$).
+    - Identificação correta da **Terfenadina** como composto cardiotóxico de Alto Risco ($P_{\text{hERG}} = 80{,}5\%$, Semáforo Vermelho automático $P > 0{,}70$).
     - Identificação da **Cafeína** como composto in-sample moderado/baixo ($pIC_{50} = 4{,}95$) e seguro para hERG ($P_{\text{hERG}} = 10{,}5\%$, Risco Baixo $P < 0{,}30$).
     - Identificação da **Taurina** e **L-Teanina** como pequenas moléculas com predições basais em $A_{2A}$ e seguras para hERG ($P_{\text{hERG}} = 7{,}6\%$ e $11{,}4\%$, Risco Baixo).
 - **Entregável Técnico:** Repositório local unificado contendo os scripts de extração/treinamento documentados, os arquivos compactados `.joblib` e o script `app.py` executável via comando local no Antigravity (`streamlit run app.py`).

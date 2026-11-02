@@ -184,11 +184,15 @@ def classify_a2a_potency_canonical(pred_pIC50: float) -> Dict[str, str]:
         }
 
 
-def classify_quadrant_canonical(x_cur: float, y_cur: float) -> Dict[str, str]:
-    """Classifica o posicionamento no espaço cartesiano (X: pIC50, Y: 1 - P_hERG)."""
-    if y_cur > 0.70:
+def classify_quadrant_canonical(x_cur: float, y_cur: float, atol: float = 1e-12) -> Dict[str, str]:
+    """Classifica o posicionamento no espaço cartesiano (X: pIC50, Y: 1 - P_hERG).
+
+    Garante que y = 0.30 (P_hERG = 0.70) e y = 0.70 (P_hERG = 0.30) pertençam
+    à classe moderada/intermediária (0.30 <= P_hERG <= 0.70), com tolerância IEEE 754.
+    """
+    if y_cur > 0.70 and not bool(np.isclose(y_cur, 0.70, rtol=0.0, atol=atol)):
         herg_y = "baixo"
-    elif y_cur < 0.30:
+    elif y_cur < 0.30 and not bool(np.isclose(y_cur, 0.30, rtol=0.0, atol=atol)):
         herg_y = "alto"
     else:
         herg_y = "intermediario"
@@ -203,25 +207,25 @@ def classify_quadrant_canonical(x_cur: float, y_cur: float) -> Dict[str, str]:
         return {
             "quad_badge_cls": "semaphore-red",
             "quad_title": "⚠️ Quadrante 4 — Potente porém Alto Risco hERG",
-            "quad_desc": "Alta potência em A2A, mas escore elevado para bloqueio hERG (P ≥ 0,70).",
+            "quad_desc": "Alta potência em A2A, mas escore elevado para bloqueio hERG (P > 0,70).",
         }
     elif x_cur < 5.0 and herg_y == "baixo":
         return {
             "quad_badge_cls": "semaphore-yellow",
             "quad_title": "🌿 Quadrante 2 — Baixa Potência & Baixo Risco hERG",
-            "quad_desc": "Baixo escore de risco hERG, porém sem potência relevante em A2A (pIC50 < 5,0).",
+            "quad_desc": "Baixo escore de risco hERG (P < 0,30), porém sem potência relevante em A2A (pIC50 < 5,0).",
         }
     elif x_cur < 5.0 and herg_y == "alto":
         return {
             "quad_badge_cls": "semaphore-red",
             "quad_title": "❌ Quadrante 3 — Baixa Potência & Alto Risco hERG",
-            "quad_desc": "Inativo em A2A associado a alto risco de bloqueio hERG (descarte imediato).",
+            "quad_desc": "Inativo em A2A associado a alto risco de bloqueio hERG (P > 0,70; descarte imediato).",
         }
     else:
         return {
             "quad_badge_cls": "semaphore-yellow",
             "quad_title": "🟡 Zona de Otimização / Hit-to-Lead",
-            "quad_desc": "Perfil intermediário de potência ou segurança; requer otimização estrutural guiada.",
+            "quad_desc": "Perfil intermediário de potência (5,0 ≤ pIC50 < 6,5) e/ou segurança (0,30 ≤ P ≤ 0,70); requer otimização estrutural guiada.",
         }
 
 

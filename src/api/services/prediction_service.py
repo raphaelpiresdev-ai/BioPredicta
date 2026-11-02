@@ -44,7 +44,8 @@ def run_prediction_pipeline(
     4. Executa a predição contínua de pIC50 via modelo A2A (XGBoost).
     5. Executa a predição probabilística de bloqueio via modelo hERG (Random Forest),
        identificando dinamicamente o índice da classe positiva a partir de classes_.
-    6. Retorna a instância validada de PredictionResponse.
+    6. Retorna a instância validada de PredictionResponse com pIC50 e p_herg_positive
+       arredondados para 2 casas decimais (mantendo o tipo numérico float).
     """
     if a2a_model is None or herg_model is None:
         raise ModelsNotLoadedError("Modelos preditivos (A2A e/ou hERG) não estão disponíveis em memória.")
@@ -52,7 +53,10 @@ def run_prediction_pipeline(
     # 1. Padronização e canonicalização química via RDKit
     canonical_smi = canonicalize_smiles(smiles)
     if not canonical_smi:
-        logger.warning("Falha na interpretação/canonicalização do SMILES: %s", smiles)
+        logger.warning(
+            "Falha na interpretação/canonicalização do SMILES (comprimento=%d).",
+            len(smiles),
+        )
         raise InvalidSmilesError(
             "O código SMILES fornecido é quimicamente inválido ou não pôde ser interpretado pelo RDKit."
         )
@@ -100,8 +104,10 @@ def run_prediction_pipeline(
         logger.error("Falha na execução do modelo hERG: %s", exc, exc_info=True)
         raise PredictionServiceError(f"Falha na inferência do modelo hERG: {exc}") from exc
 
+    # Formatação com arredondamento estrito para duas casas decimais
+    # Preserva o tipo float conforme especificação do contrato PredictionResponse
     return PredictionResponse(
         smiles=canonical_smi,
-        p_ic50=pred_p_ic50,
-        p_herg_positive=pred_p_herg_positive,
+        p_ic50=round(pred_p_ic50, 2),
+        p_herg_positive=round(pred_p_herg_positive, 2),
     )

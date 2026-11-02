@@ -1,6 +1,8 @@
-"""Pacote da API REST MultiTarget BioPredict.
+"""Pacote da API REST do projeto MultiTarget BioPredict.
 
-Fornece a interface REST desenvolvida em FastAPI para a plataforma MultiTarget BioPredict.
+Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG.
+
+Fornece a interface programática REST desenvolvida em FastAPI.
 Subpacotes:
 - schemas: Modelos e contratos de dados de entrada e saída (Pydantic).
 - services: Serviços de orquestração e integração com o núcleo científico.

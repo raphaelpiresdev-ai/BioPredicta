@@ -112,12 +112,14 @@ class TestCanonicalThresholds:
         [
             (0.10, "baixo"),
             (0.299, "baixo"),
+            (0.29, "baixo"),
             (0.2999, "baixo"),
             (0.30, "intermediario"),
             (0.50, "intermediario"),
             (0.699, "intermediario"),
             (0.70, "intermediario"),
             (0.7001, "alto"),
+            (0.71, "alto"),
             (0.95, "alto"),
         ],
     )
@@ -128,10 +130,12 @@ class TestCanonicalThresholds:
     @pytest.mark.parametrize(
         "prob,expected_class",
         [
+            (0.29, "baixo"),
             (0.2999, "baixo"),
             (0.30, "intermediario"),
             (0.70, "intermediario"),
             (0.7001, "alto"),
+            (0.71, "alto"),
         ],
     )
     def test_herg_audit_critical_boundaries(self, prob: float, expected_class: str):
@@ -159,6 +163,16 @@ class TestCanonicalThresholds:
         # Zona Intermediária
         q_mid = classify_quadrant_canonical(5.8, 0.50)
         assert "Otimização" in q_mid["quad_title"] or "Transição" in q_mid["quad_title"]
+        # Fronteira oficial 0.70 pertence ao risco moderado (Zona de Otimização), enquanto 0.71 pertence ao Quadrante 4
+        q_029 = classify_quadrant_canonical(7.0, 1.0 - 0.29)
+        assert "Quadrante 1" in q_029["quad_title"]
+        q_030 = classify_quadrant_canonical(7.0, 1.0 - 0.30)
+        assert "Otimização" in q_030["quad_title"]
+        q_070 = classify_quadrant_canonical(7.0, 1.0 - 0.70)
+        assert "Otimização" in q_070["quad_title"]
+        q_071 = classify_quadrant_canonical(7.0, 1.0 - 0.71)
+        assert "Quadrante 4" in q_071["quad_title"]
+        assert "P > 0,70" in q_071["quad_desc"]
 
 
 class TestMolecularPipelineExecution:

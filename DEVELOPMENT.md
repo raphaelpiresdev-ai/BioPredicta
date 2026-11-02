@@ -1,12 +1,9 @@
 # 📑 Relatório de Desenvolvimento Técnico (RDT)
-# MultiTarget BioPredict: Plataforma de Triagem Virtual Multiobjetivo ($A_{2A}$ × hERG)
+# MultiTarget BioPredict — Plataforma de Triagem Virtual Multiobjetivo: Potência no Receptor de Adenosina A2A × Segurança Cardíaca hERG
 
 **Projeto:** MultiTarget BioPredict  
 **Autoria Técnica:** Raphael Pires  
 **Especialidade:** Engenharia de Software, Engenharia de Dados e Quimioinformática  
-**Status Atual do Projeto:** Fases 0 a 5 Concluídas com Sucesso (Plataforma Completa Entregue) | Repositório Homologado  
-**Ambiente de Execução:** Local Antigravity IDE (Windows 11, Python 3.12, 8 GB RAM, AMD Ryzen 7, CPU Only)  
-**Repositório Git:** `BioPredicta` | **Branch Atual:** `feat/fase5-explicabilidade-e-streamlit`  
 
 ---
 
@@ -21,9 +18,9 @@ Para mitigar esse risco de forma precoce, a plataforma modela dois fenômenos bi
 | Vetor de Análise | Alvo Biológico | Tarefa de Machine Learning | Variável Alvo | Fonte Primária |
 |---|---|---|---|---|
 | **Eficácia Terapêutica** | Receptor de Adenosina $A_{2A}$ (*ADORA2A*) | **Regressão Contínua** | Potência de inibição/ligação ($pIC_{50} = 9.0 - \log_{10}(IC_{50})$) | ChEMBL (`CHEMBL251`) |
-| **Segurança Cardiológica** | Canal de Potássio $K_v11.1$ (*hERG* / *KCNH2*) | **Classificação Binária Calibrada** | Probabilidade contínua de bloqueio cardíaco ($P_{\text{hERG}} \in [0, 1]$) | Therapeutics Data Commons (TDC) / Harvard Dataverse |
+| **Segurança Cardiológica** | Canal de Potássio $K_v11.1$ (*hERG* / *KCNH2*) | **Classificação Binária com Saída Probabilística** | Probabilidade contínua de bloqueio cardíaco ($P_{\text{hERG}} \in [0, 1]$) | Therapeutics Data Commons (TDC) / Harvard Dataverse |
 
-O sistema foi arquitetado para rodar **100% no ambiente local Antigravity**, dispensando qualquer dependência de nuvem, GPUs ou serviços externos de inferência, com um teto orçamentário de consumo de memória estritamente controlado para máquinas de **8 GB de RAM**.
+O sistema foi arquitetado para rodar **100% no ambiente local**, dispensando qualquer dependência de nuvem, GPUs ou serviços externos de inferência, com um teto orçamentário de consumo de memória estritamente controlado para máquinas de **8 GB de RAM**.
 
 ---
 
@@ -580,7 +577,7 @@ flowchart TD
         G1 & G2 --> H4["Inferência Paralela Local (< 3s)"]
         H3 --> H4
         H4 --> I1["Semáforo de Eficácia A2A\n(Verde >= 6.5 | Amarelo 5.0-6.5 | Vermelho < 5.0)"]
-        H4 --> I2["Semáforo de Toxicidade hERG\n(Verde < 30% | Amarelo 30% <= P < 70% | Vermelho >= 70%)"]
+        H4 --> I2["Semáforo de Toxicidade hERG\n(Verde < 30% | Amarelo 30% <= P <= 70% | Vermelho > 70%)"]
         H4 --> I3["Explicabilidade SHAP Local\n(Top 10 Features TreeExplainer)"]
     end
 ```
@@ -620,8 +617,8 @@ Calculado exclusivamente a partir do valor predito de $pIC_{50}$:
 ### 6.2 Indicador de Triagem do Canal hERG (Classes Operacionais do Modelo)
 Calculado exclusivamente a partir do escore de probabilidade estimado pelo modelo $P_{\text{hERG}}$ (`predict_proba()` de classificador Random Forest sem calibração pós-hoc formal; não equivale diretamente à probabilidade clínica de cardiotoxicidade):
 - 🟢 **Baixo Risco Operacional:** $P_{\text{hERG}} < 30\%$ ($0{,}30$). Escore estimado pelo modelo na faixa operacional inferior.
-- 🟡 **Risco Intermediário/Moderado Operacional:** $30\% \le P_{\text{hERG}} < 70\%$ ($0{,}30 \le P_{\text{hERG}} < 0{,}70$). Faixa operacional intermediária do modelo; requer verificação experimental *in vitro* (ex.: *patch-clamp*).
-- 🔴 **Alto Risco Operacional:** $P_{\text{hERG}} \ge 70\%$ ($0{,}70$). Escore estimado pelo modelo na faixa operacional superior de propensão a bloqueio do canal hERG.
+- 🟡 **Risco Intermediário/Moderado Operacional:** $30\% \le P_{\text{hERG}} \le 70\%$ ($0{,}30 \le P_{\text{hERG}} \le 0{,}70$). Faixa operacional intermediária do modelo; requer verificação experimental *in vitro* (ex.: *patch-clamp*).
+- 🔴 **Alto Risco Operacional:** $P_{\text{hERG}} > 70\%$ ($0{,}70$). Escore estimado pelo modelo na faixa operacional superior de propensão a bloqueio do canal hERG.
 
 ---
 
@@ -670,7 +667,7 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 
 | ID | Área | Decisão Adotada | Alternativa Rejeitada | Racional Técnico e Científico |
 |---|---|---|---|---|
-| **DEC-01** | Ambiente | Execução 100% local no Antigravity | Google Colab / AWS Sagemaker | Garantia de privacidade de dados, custo computacional zero e independência de infraestrutura externa. |
+| **DEC-01** | Ambiente | Execução 100% local | Google Colab / AWS Sagemaker | Garantia de privacidade de dados, custo computacional zero e independência de infraestrutura externa. |
 | **DEC-02** | Dados TDC | Ingestão direta via Harvard Dataverse API | Biblioteca oficial `PyTDC` | `PyTDC` quebra no Windows (`tiledbsoma`), prende `numpy<2` e baixa gigabytes de pacotes PyTorch desnecessários. |
 | **DEC-03** | Memória | Morgan Fingerprints em `numpy.uint8` | Matrizes em `float64` ou `int64` | Redução de 8x no consumo de RAM, garantindo estabilidade no teto de 5 GB para máquinas de 8 GB de RAM. |
 | **DEC-04** | Paralelismo | Limitação estrita a `n_jobs=2` | Paralelismo total (`n_jobs=-1`) | No Windows, `n_jobs=-1` instancia 16 processos paralelos clonando o espaço de memória e provocando OOM. |
@@ -683,7 +680,7 @@ A tabela a seguir documenta as principais decisões arquiteturais deliberadas to
 | **DEC-11** | Frontend | Editor 2D Ketcher integrado no Streamlit | Entrada estrita por texto SMILES | Facilita uso por biólogos e químicos medicinais permitindo edição e teste de análogos diretamente no navegador. |
 | **DEC-12** | Featurização | Função unificada em lote `featurize_dataframe` | Pipelines dispersos com featurização linha a linha | Garante que treino e inferência compartilhem 100% da mesma padronização química (regras de sais e uint8). |
 | **DEC-13** | Geometria | Regiões sombreadas em coordenadas de dados (`ax.transData`) | `axvspan` com coordenadas normalizadas mistas | Elimina distorções óticas causadas por margens de eixos (`ylim = (-0.05, 1.05)`), fixando o retângulo ideal exatamente em $x \ge 6{,}5$ e $0{,}70 \le y \le 1{,}00$. |
-| **DEC-14** | Limiares | Convenção canônica estrita ($P < 0{,}30$; $0{,}30 \le P < 0{,}70$; $P \ge 0{,}70$) | Limiares ambíguos com sobreposição no PRD original | Garante que $P = 0{,}70$ pertença de forma unívoca à classe de Alto Risco em todo o código, metadados e documentação. |
+| **DEC-14** | Limiares | Convenção canônica estrita ($P < 0{,}30$; $0{,}30 \le P \le 0{,}70$; $P > 0{,}70$) | Limiares ambíguos com sobreposição no PRD original | Garante que $P = 0{,}70$ pertença de forma unívoca à classe de Risco Moderado em todo o código ativo e documentação. |
 | **DEC-15** | Domínio AD | Hierarquia de 4 níveis com auto-exclusão seletiva | Limiares binários arbitrários (ex.: $S_{\max} \ge 0{,}60$) | Evita falsas garantias clínicas, reporta $S_{\max}$ contínuo e impede auto-exclusão no Nível 3 para proteger contra colisões de hash. |
 | **DEC-16** | Qualidade | Suíte com 26 testes automatizados e benchmark isolado | Ausência de testes ou testes com asserções frágeis de CPU | Permite validação contínua da integridade química e matemática sem falsos negativos decorrentes de oscilações de hardware. |
 
@@ -755,14 +752,14 @@ Após a entrega do protótipo funcional inicial (Fases 0 a 5 do plano de desenvo
 - **Unificação de Limiares:** Eliminação da sobreposição histórica do PRD original ($30\% \le P \le 70\%$ vs. $P > 70\%$).
 - **Convenção Canônica:**
   - Baixo Risco: $P < 0{,}30$ ($y > 0{,}70$)
-  - Intermediário: $0{,}30 \le P < 0{,}70$ ($0{,}30 < y \le 0{,}70$)
-  - Alto Risco: $P \ge 0{,}70$ ($y \le 0{,}30$)
+  - Intermediário: $0{,}30 \le P \le 0{,}70$ ($0{,}30 \le y \le 0{,}70$)
+  - Alto Risco: $P > 0{,}70$ ($y < 0{,}30$)
 - **Conceituação Científica:** Explicitação documental de que $P_{\text{hERG}}$ é um escore probabilístico estimado pelo modelo, e não uma probabilidade clínica validada de arritmia.
-- **Validação:** Testes de fronteira em [`tests/test_controls_and_interpretation.py`](tests/test_controls_and_interpretation.py) para $0{,}299$, $0{,}300$, $0{,}699$, $0{,}700$ e $0{,}701$.
+- **Validação:** Testes de fronteira em [`tests/test_controls_and_interpretation.py`](tests/test_controls_and_interpretation.py) para $0{,}29$, $0{,}30$, $0{,}70$ e $0{,}71$.
 
 ### 10.4 Fase 3D-0 — Auditoria da Origem do Modelo hERG (13.136 vs. 652 Moléculas)
 - **Investigação:** Auditoria profunda do histórico Git, código-fonte e árvores internas dos arquivos `.joblib`.
-- **Esclarecimento Definitivo:** Comprovação documental de que `models/herg_model.joblib` foi treinado integralmente sobre os **$13.136$ compostos** de `herg_curated.csv` / `herg_featurized.parquet` (Random Forest com $10.508$ amostras de treino e $2.628$ de teste hold-out). O valor "652" originou-se de um erro material isolado no rascunho da Parte I de `AUDITORIA.md` (e referências biológicas ao resíduo Tyr652 do poro Kv11.1 nos notebooks).
+- **Esclarecimento Definitivo:** Comprovação documental de que `models/herg_model.joblib` foi treinado integralmente sobre os **$13.136$ compostos** de `herg_curated.csv` / `herg_featurized.parquet` (Random Forest com $10.508$ amostras de treino e $2.628$ de teste hold-out). O valor "652" originou-se de um erro material isolado no rascunho da Parte I de [`reports/AUDITORIA.md`](reports/AUDITORIA.md) (e referências biológicas ao resíduo Tyr652 do poro Kv11.1 nos notebooks).
 
 ### 10.5 Fases 3D-1 a 3D-3A — Motor de Diagnóstico do Domínio de Aplicabilidade (AD)
 - **Módulo Dedicado:** Criação de [`src/ad_utils.py`](src/ad_utils.py) e integração à Seção 16 de [`app.py`](app.py).
