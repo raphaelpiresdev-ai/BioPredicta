@@ -12,6 +12,16 @@
 ![Pydantic v2.14](https://img.shields.io/badge/Pydantic-2.14.2-E92063?logo=pydantic&logoColor=white)
 
 ---
+## Apresentação em Vídeo
+
+[▶️ Clique aqui para acessar a apresentação do projeto no Google Drive](https://drive.google.com/drive/folders/1WuiqkVeNob11fqXX7nisLdkVqGD94-3Z?usp=drive_link)
+
+## Autor
+
+**Raphael Pires**
+*   **GitHub:** [github.com/raphaelpiresdev-ai](https://github.com/raphaelpiresdev-ai)
+*   **Email:** raphaelpiresdev@gmail.com
+---
 
 ## Sumário
 
