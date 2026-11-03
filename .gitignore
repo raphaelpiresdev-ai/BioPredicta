@@ -1,0 +1,119 @@
+# =============================================================================
+# MultiTarget BioPredict — .gitignore (Python + Quimioinformática + FastAPI + Streamlit)
+# =============================================================================
+
+# --- Ambientes virtuais ------------------------------------------------------
+venv/
+.venv/
+.venv-*/
+env/
+.env/
+conda/
+.conda/
+
+# --- Variáveis de ambiente / segredos ---------------------------------------
+.env
+*.env
+.streamlit/secrets.toml
+
+# --- Caches e binários do Python ---------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+*.egg
+
+# --- Suítes de Teste, Cobertura e Benchmarking (Pytest) ---------------------
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.benchmarks/
+
+# --- Servidores ASGI / FastAPI / Uvicorn -------------------------------------
+*.pid
+uvicorn.log
+
+# --- Jupyter Notebooks -------------------------------------------------------
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+
+# --- IDEs e editores de código ----------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.directory
+
+# --- Sistema Operacional (Windows / macOS / Linux) ---------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- Logs, arquivos temporários e scratch ------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+tmp/
+scratch/
+diagnostico_*.py
+test_debug_*.py
+verify_*.py
+
+# --- Bancos de dados locais e temporários -----------------------------------
+*.sqlite
+*.sqlite3
+*.db
+
+# =============================================================================
+# Dados (data/)
+# CSVs essenciais leves e datasets curados e featurizados SÃO versionados.
+# Ignoramos apenas arquivos pesados, backups, temporários e formatos intermediários.
+# =============================================================================
+data/**/*.bak
+data/**/*.backup
+data/**/*.old
+data/**/~*
+data/**/*.zip
+data/**/*.gz
+data/**/*.tar
+data/**/*.7z
+data/**/*.rar
+data/**/*.h5
+data/**/*.hdf5
+data/**/*.pkl
+data/**/*.pickle
+data/**/*.feather
+data/**/*.npy
+data/**/*.npz
+data/**/cache/
+data/**/_tmp*/
+!data/**/.gitkeep
+
+# =============================================================================
+# Modelos (models/)
+# Artefatos finais .joblib (compactados) e metadados JSON SÃO versionados.
+# Ignoramos checkpoints intermediários e experimentos descartáveis.
+# =============================================================================
+models/**/checkpoints/
+models/**/*_tmp.*
+models/**/*.bak
+!models/.gitkeep
+
+# --- Caches de bibliotecas científicas --------------------------------------
+catboost_info/
+.cache/
